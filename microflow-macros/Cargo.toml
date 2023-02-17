@@ -1,0 +1,17 @@
+[package]
+name = "microflow-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-error = "1.0"
+flatbuffers = "23.1"
+
+[build-dependencies]
+flatc-rust = "0.2"
