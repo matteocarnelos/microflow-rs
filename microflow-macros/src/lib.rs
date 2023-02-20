@@ -4,12 +4,14 @@ use proc_macro::TokenStream;
 use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::parse_macro_input;
-use tflite_flatbuffers::tflite;
-use tflite_flatbuffers::tflite::BuiltinOperator;
 
-mod layers;
+use tensor::ParsedTensor;
+use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
+
+mod ops;
+mod tensor;
 #[path = "../target/flatbuffers/tflite_generated.rs"]
 #[allow(unused_imports)]
 mod tflite_flatbuffers;
@@ -20,42 +22,47 @@ mod tflite_flatbuffers;
 pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let path = parse_macro_input!(input as syn::LitStr).value();
     let buf = fs::read(path).unwrap();
-    let model = tflite::root_as_model(&buf).unwrap();
+    let model = root_as_model(&buf).unwrap();
     let subgraph = model.subgraphs().unwrap().get(0);
     let tensors = subgraph.tensors().unwrap();
+    let buffers = model.buffers().unwrap();
 
     let input = tensors.get(subgraph.inputs().unwrap().get(0) as usize);
-    let input_shape: Vec<usize> = input.shape().unwrap().iter().map(|e| e as usize).collect();
-    let input_scale = input.quantization().unwrap().scale().unwrap().get(0);
-    let input_zero_point = input.quantization().unwrap().zero_point().unwrap().get(0) as i8;
+    let input: ParsedTensor<i8> = ParsedTensor::new_empty(input);
 
-    let buffers = model.buffers().unwrap();
     let operators = subgraph.operators().unwrap();
     let operator_codes = model.operator_codes().unwrap();
-    let mut layers: Vec<TokenStream2> = Vec::new();
+    let mut layers = TokenStream2::new();
     for operator in operators {
-        layers.push(
-            match operator_codes
-                .get(operator.opcode_index() as usize)
-                .builtin_code()
-            {
-                BuiltinOperator::FULLY_CONNECTED => {
-                    layers::fully_connected(tensors, operator, buffers)
-                }
-                _ => unimplemented!(),
-            },
-        );
+        let layer = match operator_codes
+            .get(operator.opcode_index() as usize)
+            .builtin_code()
+        {
+            BuiltinOperator::FULLY_CONNECTED => {
+                ops::FullyConnected::new(operator, tensors, buffers)
+            }
+            _ => unimplemented!(),
+        };
+        layer.to_tokens(&mut layers)
     }
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
-    let output_shape: Vec<usize> = output.shape().unwrap().iter().map(|e| e as usize).collect();
+    let output: ParsedTensor<i8> = ParsedTensor::new_empty(output);
+
+    let input_rows = input.matrix.shape().0;
+    let input_columns = input.matrix.shape().1;
+    let input_scale = input.scale;
+    let input_zero_point = input.zero_point;
+
+    let output_rows = output.matrix.shape().0;
+    let output_columns = output.matrix.shape().1;
 
     let tokens = quote! {
         struct Model;
         impl Model {
-            pub fn evaluate(input: nalgebra::SMatrix<f32, #(#input_shape),*>) -> nalgebra::SMatrix<f32, #(#output_shape),*> {
+            pub fn evaluate(input: nalgebra::SMatrix<f32, #input_rows, #input_columns>) -> nalgebra::SMatrix<f32, #output_rows, #output_columns> {
                 let output = microflow::tensor::QuantizedTensor::quantize(input, #input_scale, #input_zero_point);
-                #(#layers)*
+                #layers
                 output.dequantize()
             }
         }

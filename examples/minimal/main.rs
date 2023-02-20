@@ -1,5 +1,5 @@
 use libm::sinf;
-use microflow_macros::model;
+use microflow::model;
 use nalgebra::vector;
 
 #[model("examples/models/sine.tflite")]
