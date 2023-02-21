@@ -19,8 +19,6 @@ mod tensor;
 mod tflite_flatbuffers;
 mod matrix;
 
-// TODO: Support more quantization types (not i8 only)
-
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
