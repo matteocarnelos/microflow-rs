@@ -3,9 +3,15 @@ use nalgebra::{convert_ref, DMatrix};
 use quote::{quote, ToTokens};
 use proc_macro2::TokenStream as TokenStream2;
 
-use crate::tflite_flatbuffers::tflite::{ActivationFunctionType, Buffer, Operator, Tensor};
+use crate::tflite_flatbuffers::tflite::{ActivationFunctionType, Buffer, Operator, Tensor, BuiltinOperator};
 use crate::tensor::TokenTensor;
 use crate::matrix::TokenMatrix;
+
+pub const SUPPORTED_OPS: [BuiltinOperator; 3] = [
+    BuiltinOperator::QUANTIZE,
+    BuiltinOperator::DEQUANTIZE,
+    BuiltinOperator::FULLY_CONNECTED,
+];
 
 pub struct FullyConnected {
     pub(crate) weights: TokenTensor<i8>,

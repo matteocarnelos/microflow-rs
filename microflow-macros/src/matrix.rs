@@ -20,14 +20,13 @@ where
     T: ToTokens,
 {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let mut ts = TokenStream2::new();
+        let mut matrix = TokenStream2::new();
         for row in self.matrix.row_iter() {
             let iter = row.iter();
-            let t = quote! { #(#iter),*; };
-            t.to_tokens(&mut ts);
+            quote!(#(#iter),*;).to_tokens(&mut matrix);
         }
 
-        let output = quote! { nalgebra::matrix![#ts] };
+        let output = quote! { nalgebra::matrix![#matrix] };
         output.to_tokens(tokens);
     }
 }

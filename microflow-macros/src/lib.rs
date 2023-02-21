@@ -2,6 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use std::fs;
+use proc_macro_error::{proc_macro_error, abort_call_site};
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
@@ -9,6 +10,7 @@ use syn::parse_macro_input;
 
 use tensor::TokenTensor;
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
+use layers::SUPPORTED_OPS;
 
 mod layers;
 mod tensor;
@@ -19,11 +21,22 @@ mod matrix;
 
 // TODO: Support more quantization types (not i8 only)
 
+#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let path = parse_macro_input!(input as syn::LitStr).value();
-    let buf = fs::read(path).unwrap();
-    let model = root_as_model(&buf).unwrap();
+    let buf = fs::read(&path)
+        .unwrap_or_else(|_| abort_call_site!("couldn't find '{}', please provide a valid path", &path));
+    let model = root_as_model(&buf)
+        .unwrap_or_else(|_| abort_call_site!("invalid model, please provide a valid TensorFlow Lite model"));
+
+    let operator_codes = model.operator_codes().unwrap();
+    for operator_code in operator_codes {
+        if !SUPPORTED_OPS.contains(& operator_code.builtin_code()) {
+            abort_call_site!("unsupported operator: {:?}", operator_code.builtin_code());
+        }
+    }
+
     let subgraph = model.subgraphs().unwrap().get(0);
     let tensors = subgraph.tensors().unwrap();
     let buffers = model.buffers().unwrap();
@@ -32,7 +45,6 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let input: TokenTensor<i8> = TokenTensor::new_empty(input);
 
     let operators = subgraph.operators().unwrap();
-    let operator_codes = model.operator_codes().unwrap();
     let mut layers = TokenStream2::new();
     for operator in operators {
         let layer: Box<dyn ToTokens> = match operator_codes
@@ -41,8 +53,8 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
         {
             BuiltinOperator::FULLY_CONNECTED => {
                 Box::new(layers::FullyConnected::new(operator, tensors, buffers))
-            }
-            _ => unimplemented!(),
+            },
+            _ => unreachable!()
         };
         layer.to_tokens(&mut layers)
     }
