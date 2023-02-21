@@ -4,19 +4,21 @@ use byterepr::ByteReprNum;
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::{DMatrix, Scalar};
 use num_traits::Zero;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{quote, ToTokens};
 use simba::scalar::SupersetOf;
 
+use crate::matrix::TokenMatrix;
 use crate::tflite_flatbuffers::tflite::{Buffer, Tensor};
-use crate::{quote, ToTokens, TokenStream2};
 
 #[derive(Debug)]
-pub struct ParsedTensor<T> {
-    pub(crate) matrix: DMatrix<T>,
+pub struct TokenTensor<T> {
+    pub(crate) matrix: TokenMatrix<T>,
     pub(crate) scale: f32,
     pub(crate) zero_point: T,
 }
 
-impl<T> ParsedTensor<T>
+impl<T> TokenTensor<T>
 where
     T: Scalar + ByteReprNum,
     i64: SupersetOf<T>,
@@ -27,7 +29,7 @@ where
     {
         let shape: Vec<usize> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
         Self {
-            matrix: DMatrix::zeros(shape[0], shape[1]),
+            matrix: DMatrix::zeros(shape[0], shape[1]).into(),
             scale: tensor.quantization().unwrap().scale().unwrap().get(0),
             zero_point: i64::to_subset_unchecked(
                 &tensor.quantization().unwrap().zero_point().unwrap().get(0),
@@ -49,7 +51,7 @@ where
             .map(|e| T::from_le_bytes(e))
             .collect();
         Self {
-            matrix: DMatrix::from_vec(shape[1], shape[0], data),
+            matrix: DMatrix::from_vec(shape[1], shape[0], data).into(),
             scale: tensor.quantization().unwrap().scale().unwrap().get(0),
             zero_point: i64::to_subset_unchecked(
                 &tensor.quantization().unwrap().zero_point().unwrap().get(0),
@@ -58,26 +60,22 @@ where
     }
 }
 
-impl<T> ToTokens for ParsedTensor<T>
+impl<T> ToTokens for TokenTensor<T>
 where
     T: ToTokens,
 {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let mut matrix = TokenStream2::new();
-        for row in self.matrix.row_iter() {
-            let iter = row.iter();
-            let t = quote! { #(#iter),*; };
-            t.to_tokens(&mut matrix);
-        }
-        let scale = self.scale;
+        let matrix = &self.matrix;
+        let scale = &self.scale;
         let zero_point = &self.zero_point;
-        let tensor = quote! {
+
+        let output = quote! {
             microflow::tensor::QuantizedTensor::new(
-                nalgebra::matrix![#matrix],
+                #matrix,
                 #scale,
                 #zero_point
             )
         };
-        tensor.to_tokens(tokens);
+        output.to_tokens(tokens);
     }
 }

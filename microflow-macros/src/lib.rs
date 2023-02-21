@@ -7,14 +7,15 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::parse_macro_input;
 
-use tensor::ParsedTensor;
+use tensor::TokenTensor;
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
 
-mod ops;
+mod layers;
 mod tensor;
 #[path = "../target/flatbuffers/tflite_generated.rs"]
 #[allow(unused_imports)]
 mod tflite_flatbuffers;
+mod matrix;
 
 // TODO: Support more quantization types (not i8 only)
 
@@ -28,18 +29,18 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let buffers = model.buffers().unwrap();
 
     let input = tensors.get(subgraph.inputs().unwrap().get(0) as usize);
-    let input: ParsedTensor<i8> = ParsedTensor::new_empty(input);
+    let input: TokenTensor<i8> = TokenTensor::new_empty(input);
 
     let operators = subgraph.operators().unwrap();
     let operator_codes = model.operator_codes().unwrap();
     let mut layers = TokenStream2::new();
     for operator in operators {
-        let layer = match operator_codes
+        let layer: Box<dyn ToTokens> = match operator_codes
             .get(operator.opcode_index() as usize)
             .builtin_code()
         {
             BuiltinOperator::FULLY_CONNECTED => {
-                ops::FullyConnected::new(operator, tensors, buffers)
+                Box::new(layers::FullyConnected::new(operator, tensors, buffers))
             }
             _ => unimplemented!(),
         };
@@ -47,7 +48,7 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     }
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
-    let output: ParsedTensor<i8> = ParsedTensor::new_empty(output);
+    let output: TokenTensor<i8> = TokenTensor::new_empty(output);
 
     let input_rows = input.matrix.shape().0;
     let input_columns = input.matrix.shape().1;
