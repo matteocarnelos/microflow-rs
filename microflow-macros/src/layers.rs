@@ -1,11 +1,13 @@
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::{convert_ref, DMatrix};
-use quote::{quote, ToTokens};
 use proc_macro2::TokenStream as TokenStream2;
+use quote::{quote, ToTokens};
 
-use crate::tflite_flatbuffers::tflite::{ActivationFunctionType, Buffer, Operator, Tensor, BuiltinOperator};
-use crate::tensor::TokenTensor;
 use crate::matrix::TokenMatrix;
+use crate::tensor::TokenTensor;
+use crate::tflite_flatbuffers::tflite::{
+    ActivationFunctionType, Buffer, BuiltinOperator, Operator, Tensor,
+};
 
 pub const SUPPORTED_OPS: [BuiltinOperator; 3] = [
     BuiltinOperator::QUANTIZE,
@@ -55,11 +57,13 @@ impl FullyConnected {
         (
             output.zero_point as f32,
             (biases.scale / output.scale
-                * biases.matrix.add_scalar(-biases.zero_point).cast::<f32>()).into(),
+                * biases.matrix.add_scalar(-biases.zero_point).cast::<f32>())
+            .into(),
             input.scale * weights.scale / output.scale,
             DMatrix::from_rows(&[(input.zero_point as i32
                 * convert_ref::<DMatrix<i8>, DMatrix<i32>>(&weights.matrix).row_sum())
-            .cast::<f32>()]).into(),
+            .cast::<f32>()])
+            .into(),
             (input.matrix.shape().1 as i32 * input.zero_point as i32 * weights.zero_point as i32)
                 as f32,
         )
@@ -71,11 +75,7 @@ impl ToTokens for FullyConnected {
         let weights = &self.weights;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
-        let constant_0 = &self.constants.0;
-        let constant_1 = &self.constants.1;
-        let constant_2 = &self.constants.2;
-        let constant_3 = &self.constants.3;
-        let constant_4 = &self.constants.4;
+        let (constant_0, constant_1, constant_2, constant_3, constant_4) = &self.constants;
 
         let activation = match self.activation {
             ActivationFunctionType::RELU => quote! { microflow::activations::Activation::RELU },
