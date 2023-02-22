@@ -14,7 +14,7 @@ use layers::SUPPORTED_OPS;
 
 mod layers;
 mod tensor;
-#[path = "../target/flatbuffers/tflite_generated.rs"]
+#[path = "../flatbuffers/tflite_generated.rs"]
 #[allow(unused_imports)]
 mod tflite_flatbuffers;
 mod matrix;
