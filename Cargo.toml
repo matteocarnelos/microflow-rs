@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-microflow-macros = { path = "microflow-macros" }
+microflow-macros = { version = "0.1", path = "microflow-macros" }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 simba = { version = "0.8", default-features = false }
 libm = "0.2"
 
 [dev-dependencies]
 csv = "1.1"
+
+[workspace]
+members = [ "microflow-macros" ]
 
 [patch.crates-io]
 nalgebra = { git = "https://github.com/matteocarnelos/nalgebra" }
