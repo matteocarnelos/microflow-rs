@@ -1,0 +1,10 @@
+[env]
+CARGO_MAKE_WORKSPACE_EMULATION = true
+CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
+    ".",
+    "microflow-macros",
+    "examples/minimal",
+    "examples/microflow-vs-tflite",
+    "examples/qemu",
+    "examples/atsamx7x"
+]

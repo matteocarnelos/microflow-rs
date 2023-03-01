@@ -1,12 +1,12 @@
-use microflow_macros::model;
+use microflow::model;
 use nalgebra::matrix;
 
-#[model("examples/models/sine.tflite")]
+#[model("../models/sine.tflite")]
 struct Model;
 
 fn main() {
-    let mut rdr = csv::Reader::from_path("examples/microflow-vs-tflite/tflite.csv").unwrap();
-    let mut wtr = csv::Writer::from_path("examples/microflow-vs-tflite/microflow.csv").unwrap();
+    let mut rdr = csv::Reader::from_path("tflite.csv").unwrap();
+    let mut wtr = csv::Writer::from_path("microflow.csv").unwrap();
 
     wtr.write_record(["x", "y_pred"]).unwrap();
 

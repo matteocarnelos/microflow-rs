@@ -17,6 +17,7 @@ mod matrix;
 mod tensor;
 #[path = "../flatbuffers/tflite_generated.rs"]
 #[allow(unused_imports)]
+#[allow(clippy::all)]
 mod tflite_flatbuffers;
 
 #[proc_macro_error]

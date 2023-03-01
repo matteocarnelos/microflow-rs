@@ -1,0 +1,10 @@
+[package]
+name = "examples-microflow-vs-tflite"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+csv = "1.1"
+libm = "0.2"
+nalgebra = "0.32"
+microflow = { path = "../.." }
