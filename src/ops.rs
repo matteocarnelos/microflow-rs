@@ -10,18 +10,18 @@ pub fn fully_connected<const M: usize, const P: usize, const N: usize>(
     scale: f32,
     zero_point: i8,
     activation: Activation,
-    constants: (f32, SMatrix<f32, N, 1>, f32, SMatrix<f32, 1, N>, f32),
+    constants: (i8, SMatrix<f32, N, 1>, f32, SMatrix<i32, 1, N>, i32),
 ) -> QuantizedTensor<i8, M, N> {
     let x = (
-        (input.buffer.cast::<i32>() * weights.buffer.cast::<i32>()).cast::<f32>(),
-        (weights.zero_point as i32 * input.buffer.cast::<i32>().column_sum()).cast::<f32>(),
+        input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
+        weights.zero_point as i32 * input.buffer.cast::<i32>().column_sum(),
     );
 
     let acc: SMatrix<i8, M, N> = SMatrix::from_fn(|i, j| {
         roundf(
-            constants.0
+            constants.0 as f32
                 + constants.1[j]
-                + constants.2 * (x.0[(i, j)] - x.1[i] - constants.3[j] + constants.4),
+                + constants.2 * (x.0[(i, j)] - x.1[i] - constants.3[j] + constants.4) as f32,
         ) as i8
     });
 

@@ -19,7 +19,7 @@ pub struct FullyConnected {
     pub(crate) weights: TokenTensor<i8>,
     pub(crate) output: TokenTensor<i8>,
     pub(crate) activation: ActivationFunctionType,
-    pub(crate) constants: (f32, TokenMatrix<f32>, f32, TokenMatrix<f32>, f32),
+    pub(crate) constants: (i8, TokenMatrix<f32>, f32, TokenMatrix<i32>, i32),
 }
 
 impl FullyConnected {
@@ -53,19 +53,17 @@ impl FullyConnected {
         weights: &TokenTensor<i8>,
         biases: &TokenTensor<i32>,
         output: &TokenTensor<i8>,
-    ) -> (f32, TokenMatrix<f32>, f32, TokenMatrix<f32>, f32) {
+    ) -> (i8, TokenMatrix<f32>, f32, TokenMatrix<i32>, i32) {
         (
-            output.zero_point as f32,
+            output.zero_point,
             (biases.scale / output.scale
                 * biases.matrix.add_scalar(-biases.zero_point).cast::<f32>())
             .into(),
             input.scale * weights.scale / output.scale,
             DMatrix::from_rows(&[(input.zero_point as i32
-                * convert_ref::<DMatrix<i8>, DMatrix<i32>>(&weights.matrix).row_sum())
-            .cast::<f32>()])
+                * convert_ref::<DMatrix<i8>, DMatrix<i32>>(&weights.matrix).row_sum())])
             .into(),
-            (input.matrix.shape().1 as i32 * input.zero_point as i32 * weights.zero_point as i32)
-                as f32,
+            input.matrix.shape().1 as i32 * input.zero_point as i32 * weights.zero_point as i32,
         )
     }
 }
