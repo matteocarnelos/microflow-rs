@@ -1,6 +1,6 @@
 [package]
 name = "examples-qemu"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 [dependencies]
@@ -14,3 +14,4 @@ microflow = { path = "../.." }
 
 [profile.release]
 lto = true
+debug = true
