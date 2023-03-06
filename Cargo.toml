@@ -9,5 +9,12 @@ nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 simba = { version = "0.8", default-features = false }
 libm = "0.2"
 
+[dev-dependencies]
+csv = "1.2"
+
+[workspace]
+members = ["microflow-macros"]
+exclude = ["examples"]
+
 [patch.crates-io]
 nalgebra = { git = "https://github.com/matteocarnelos/nalgebra" }

@@ -1,0 +1,25 @@
+[package]
+name = "examples-arduino"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+panic-halt = "0.2"
+ufmt = "0.2"
+nb = "0.1"
+embedded-hal = "0.2"
+arduino-hal = { git = "https://github.com/rahix/avr-hal", features = ["arduino-uno"] }
+avr-device = "0.5"
+nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
+microflow = { path = "../.." }
+
+[profile.dev]
+opt-level = "z"
+panic = "abort"
+
+[profile.release]
+opt-level = "z"
+panic = "abort"
+lto = true
+debug = true
+codegen-units = 1

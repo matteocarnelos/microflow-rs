@@ -1,9 +1,0 @@
-[package]
-name = "examples-minimal"
-version = "0.0.0"
-edition = "2021"
-
-[dependencies]
-libm = "0.2"
-nalgebra = "0.32"
-microflow = { path = "../.." }

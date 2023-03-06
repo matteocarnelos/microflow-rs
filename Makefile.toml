@@ -1,10 +1,42 @@
 [env]
-CARGO_MAKE_WORKSPACE_EMULATION = true
-CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
-    ".",
-    "microflow-macros",
-    "examples/minimal",
-    "examples/microflow-vs-tflite",
-    "examples/qemu",
-    "examples/atsamx7x"
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[config]
+default_to_workspace = false
+
+[tasks.default]
+alias = "microflow"
+
+[tasks.all]
+dependencies = [
+    "examples-qemu",
+    "examples-atsamx7x",
+    "examples-arduino",
 ]
+run_task = { name = "microflow", fork = true }
+
+[tasks.microflow]
+workspace = true
+dependencies = [
+    "build",
+    "examples-compile",
+    "test",
+    "clippy",
+    "check-format",
+    "docs",
+]
+
+[tasks.examples-qemu]
+cwd = "examples/qemu"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-atsamx7x]
+cwd = "examples/atsamx7x"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-arduino]
+cwd = "examples/arduino"
+command = "cargo"
+args = ["make"]

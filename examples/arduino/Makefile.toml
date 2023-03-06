@@ -1,0 +1,15 @@
+[tasks.default]
+clear = true
+dependencies = [
+    "install-toolchain",
+    "examples-compile",
+    "clippy",
+    "check-format",
+]
+
+[tasks.install-toolchain]
+command = "rustup"
+args = ["toolchain", "install", "nightly", "--component", "rust-src"]
+
+[tasks.examples-compile]
+toolchain = "nightly"

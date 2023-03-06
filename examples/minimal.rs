@@ -2,7 +2,7 @@ use libm::sinf;
 use microflow::model;
 use nalgebra::vector;
 
-#[model("../models/sine.tflite")]
+#[model("examples/models/sine.tflite")]
 struct Model;
 
 fn main() {
