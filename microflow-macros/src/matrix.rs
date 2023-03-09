@@ -21,7 +21,7 @@ where
 {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let mut matrix = TokenStream2::new();
-        for row in self.matrix.row_iter() {
+        for row in self.row_iter() {
             let iter = row.iter();
             quote!(#(#iter),*;).to_tokens(&mut matrix);
         }

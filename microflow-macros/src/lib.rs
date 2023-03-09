@@ -9,6 +9,8 @@ use quote::{quote, ToTokens};
 use syn::parse_macro_input;
 
 use layers::SUPPORTED_OPS;
+use structmeta::StructMeta;
+use syn::{LitInt, LitStr};
 use tensor::TokenTensor;
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
 
@@ -20,12 +22,22 @@ mod tensor;
 #[allow(clippy::all)]
 mod tflite_flatbuffers;
 
+#[derive(StructMeta)]
+struct Args {
+    #[struct_meta(unnamed)]
+    path: LitStr,
+    capacity: Option<LitInt>,
+}
+
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
-    let path = parse_macro_input!(input as syn::LitStr).value();
-    let buf = fs::read(&path).unwrap_or_else(|_| {
-        abort_call_site!("couldn't find '{}', please provide a valid path", &path)
+    let args = parse_macro_input!(input as Args);
+    let buf = fs::read(&args.path.value()).unwrap_or_else(|_| {
+        abort_call_site!(
+            "couldn't find '{}', please provide a valid path",
+            &args.path.value()
+        )
     });
     let model = root_as_model(&buf).unwrap_or_else(|_| {
         abort_call_site!("invalid model, please provide a valid TensorFlow Lite model")
@@ -38,12 +50,18 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
         }
     }
 
+    let capacity = args.capacity.map(|x| {
+        x.base10_parse::<usize>().unwrap_or_else(|_| {
+            abort_call_site!("invalid value for parameter `capacity`: {}", x.to_string());
+        })
+    });
+
     let subgraph = model.subgraphs().unwrap().get(0);
     let tensors = subgraph.tensors().unwrap();
     let buffers = model.buffers().unwrap();
 
     let input = tensors.get(subgraph.inputs().unwrap().get(0) as usize);
-    let input: TokenTensor<i8> = TokenTensor::new_empty(input);
+    let input: TokenTensor<i8> = input.into();
 
     let operators = subgraph.operators().unwrap();
     let mut layers = TokenStream2::new();
@@ -52,16 +70,16 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
             .get(operator.opcode_index() as usize)
             .builtin_code()
         {
-            BuiltinOperator::FULLY_CONNECTED => {
-                Box::new(layers::FullyConnected::new(operator, tensors, buffers))
-            }
+            BuiltinOperator::FULLY_CONNECTED => Box::new(layers::FullyConnected::new(
+                operator, tensors, buffers, capacity,
+            )),
             _ => unreachable!(),
         };
         layer.to_tokens(&mut layers)
     }
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
-    let output: TokenTensor<i8> = TokenTensor::new_empty(output);
+    let output: TokenTensor<i8> = output.into();
 
     let input_rows = input.matrix.shape().0;
     let input_columns = input.matrix.shape().1;

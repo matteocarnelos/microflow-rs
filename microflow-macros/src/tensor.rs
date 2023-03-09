@@ -23,21 +23,15 @@ where
     T: Scalar + ByteReprNum,
     i64: SupersetOf<T>,
 {
-    pub fn new_empty(tensor: Tensor) -> Self
-    where
-        T: Zero,
-    {
-        let shape: Vec<usize> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
+    pub fn new(matrix: TokenMatrix<T>, scale: f32, zero_point: T) -> Self {
         Self {
-            matrix: DMatrix::zeros(shape[0], shape[1]).into(),
-            scale: tensor.quantization().unwrap().scale().unwrap().get(0),
-            zero_point: i64::to_subset_unchecked(
-                &tensor.quantization().unwrap().zero_point().unwrap().get(0),
-            ),
+            matrix,
+            scale,
+            zero_point,
         }
     }
 
-    pub fn new_with_data(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
+    pub fn from_buffered_tensor(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
         let mut shape: Vec<usize> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
         if shape.len() == 1 {
             shape.insert(0, 1);
@@ -52,6 +46,23 @@ where
             .collect();
         Self {
             matrix: DMatrix::from_vec(shape[1], shape[0], data).into(),
+            scale: tensor.quantization().unwrap().scale().unwrap().get(0),
+            zero_point: i64::to_subset_unchecked(
+                &tensor.quantization().unwrap().zero_point().unwrap().get(0),
+            ),
+        }
+    }
+}
+
+impl<T> From<Tensor<'_>> for TokenTensor<T>
+where
+    T: Scalar + Zero,
+    i64: SupersetOf<T>,
+{
+    fn from(tensor: Tensor) -> Self {
+        let shape: Vec<usize> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
+        Self {
+            matrix: DMatrix::zeros(shape[0], shape[1]).into(),
             scale: tensor.quantization().unwrap().scale().unwrap().get(0),
             zero_point: i64::to_subset_unchecked(
                 &tensor.quantization().unwrap().zero_point().unwrap().get(0),
