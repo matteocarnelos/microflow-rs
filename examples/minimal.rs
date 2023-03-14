@@ -6,10 +6,10 @@ use nalgebra::vector;
 struct Model;
 
 fn main() {
-    let x = 1.3;
-    let predicted = Model::evaluate(vector![x])[0];
-    let exact = sinf(x);
-    println!("Predicted sin({}): {}", x, predicted);
-    println!("Exact sin({}): {}", x, exact);
-    println!("Error: {}", exact - predicted);
+    let x = 1.5;
+    let y_predicted = Model::evaluate(vector![x])[0];
+    let y_exact = sinf(x);
+    println!("Predicted sin({}): {}", x, y_predicted);
+    println!("Exact sin({}): {}", x, y_exact);
+    println!("Error: {}", y_exact - y_predicted);
 }

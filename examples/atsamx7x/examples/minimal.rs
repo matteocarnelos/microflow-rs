@@ -3,9 +3,8 @@
 
 use panic_probe as _;
 
-#[rtic::app(device = atsamx7x_hal::pac, peripherals = true, dispatchers = [I2SC0])]
+#[rtic::app(device = hal::pac, peripherals = true, dispatchers = [I2SC0])]
 mod app {
-    use atsamx7x_hal as hal;
     use libm::sinf;
     use microflow::model;
     use nalgebra::vector;
@@ -25,12 +24,12 @@ mod app {
         hal::watchdog::Watchdog::new(cx.device.WDT).disable();
         rtt_init_print!();
 
-        let x = 1.3;
-        let predicted = Model::evaluate(vector![x])[0];
-        let exact = sinf(x);
-        rprintln!("Predicted sin({}): {}", x, predicted);
-        rprintln!("Exact sin({}): {}", x, exact);
-        rprintln!("Error: {}", exact - predicted);
+        let x = 1.5;
+        let y_predicted = Model::evaluate(vector![x])[0];
+        let y_exact = sinf(x);
+        rprintln!("Predicted sin({}): {}", x, y_predicted);
+        rprintln!("Exact sin({}): {}", x, y_exact);
+        rprintln!("Error: {}", y_exact - y_predicted);
 
         (Shared {}, Local {}, init::Monotonics())
     }

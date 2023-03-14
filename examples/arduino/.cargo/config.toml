@@ -1,5 +1,5 @@
 [target.'cfg(target_arch = "avr")']
-runner = "ravedude uno -cb 57600 -P /dev/cu.wchusbserial14420"
+runner = "ravedude uno -cb 57600"
 rustflags = [
     "-C", "default-linker-libraries",
 ]

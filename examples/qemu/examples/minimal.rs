@@ -14,13 +14,13 @@ struct Model;
 
 #[entry]
 fn main() -> ! {
-    let x = 1.3;
-    let predicted = Model::evaluate(vector![x])[0];
-    let exact = sinf(x);
+    let x = 1.5;
+    let y_predicted = Model::evaluate(vector![x])[0];
+    let y_exact = sinf(x);
     hprintln!();
-    hprintln!("Predicted sin({}): {}", x, predicted);
-    hprintln!("Exact sin({}): {}", x, exact);
-    hprintln!("Error: {}", exact - predicted);
+    hprintln!("Predicted sin({}): {}", x, y_predicted);
+    hprintln!("Exact sin({}): {}", x, y_exact);
+    hprintln!("Error: {}", y_exact - y_predicted);
     debug::exit(debug::EXIT_SUCCESS);
     loop {
         cortex_m::asm::nop();

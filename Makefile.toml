@@ -9,9 +9,10 @@ alias = "microflow"
 
 [tasks.all]
 dependencies = [
-    "examples-qemu",
-    "examples-atsamx7x",
     "examples-arduino",
+    "examples-atsamx7x",
+    "examples-esp32",
+    "examples-qemu",
 ]
 run_task = { name = "microflow", fork = true }
 
@@ -26,8 +27,8 @@ dependencies = [
     "docs",
 ]
 
-[tasks.examples-qemu]
-cwd = "examples/qemu"
+[tasks.examples-arduino]
+cwd = "examples/arduino"
 command = "cargo"
 args = ["make"]
 
@@ -36,7 +37,13 @@ cwd = "examples/atsamx7x"
 command = "cargo"
 args = ["make"]
 
-[tasks.examples-arduino]
-cwd = "examples/arduino"
+[tasks.examples-esp32]
+cwd = "examples/esp32"
+command = "cargo"
+args = ["+esp", "make"]
+install_crate = false
+
+[tasks.examples-qemu]
+cwd = "examples/qemu"
 command = "cargo"
 args = ["make"]
