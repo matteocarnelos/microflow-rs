@@ -18,7 +18,7 @@ pub const SUPPORTED_OPS: [BuiltinOperator; 3] = [
 pub struct FullyConnected {
     pub(crate) weights: TokenTensor<i8>,
     pub(crate) output: TokenTensor<i8>,
-    pub(crate) activation: ActivationFunctionType,
+    pub(crate) fused_activation: ActivationFunctionType,
     pub(crate) constants: (i8, TokenMatrix<f32>, f32, TokenMatrix<i32>, i32),
     pub(crate) capacity: Option<usize>,
 }
@@ -47,7 +47,7 @@ impl FullyConnected {
         Self {
             weights,
             output,
-            activation,
+            fused_activation: activation,
             constants,
             capacity,
         }
@@ -80,9 +80,9 @@ impl ToTokens for FullyConnected {
         let output_zero_point = &self.output.zero_point;
         let (constant_0, constant_1, constant_2, constant_3, constant_4) = &self.constants;
 
-        let activation = match self.activation {
-            ActivationFunctionType::RELU => quote! { microflow::activations::Activation::RELU },
-            ActivationFunctionType::NONE => quote! { microflow::activations::Activation::NONE },
+        let activation = match self.fused_activation {
+            ActivationFunctionType::RELU => quote! { microflow::activations::ActivationType::RELU },
+            ActivationFunctionType::NONE => quote! { microflow::activations::ActivationType::NONE },
             _ => unimplemented!(),
         };
 
