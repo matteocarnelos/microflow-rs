@@ -13,6 +13,11 @@ microflow = { path = "../.." }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 libm = "0.2"
 
+[profile.dev]
+opt-level = "z"
+panic = "abort"
+lto = true
+
 [profile.release]
 opt-level = "z"
 panic = "abort"
