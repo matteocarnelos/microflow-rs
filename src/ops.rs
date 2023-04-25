@@ -2,22 +2,22 @@ use libm::roundf;
 use nalgebra::SMatrix;
 
 use crate::activations::{relu, ActivationType};
-use crate::tensor::QuantizedTensor;
+use crate::tensor::QuantizedTensor2D;
 
 pub fn fully_connected<const M: usize, const P: usize, const N: usize>(
-    input: &QuantizedTensor<i8, M, P>,
-    weights: QuantizedTensor<i8, P, N>,
+    input: &QuantizedTensor2D<i8, M, P>,
+    weights: QuantizedTensor2D<i8, P, N>,
     scale: f32,
     zero_point: i8,
     fused_activation: ActivationType,
     constants: (i8, SMatrix<f32, N, 1>, f32, SMatrix<i32, 1, N>, i32),
-) -> QuantizedTensor<i8, M, N> {
+) -> QuantizedTensor2D<i8, M, N> {
     let x = (
-        input.matrix.cast::<i32>() * weights.matrix.cast::<i32>(),
-        weights.zero_point as i32 * input.matrix.cast::<i32>().column_sum(),
+        input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
+        weights.zero_point as i32 * input.buffer.cast::<i32>().column_sum(),
     );
 
-    QuantizedTensor::new(
+    QuantizedTensor2D::new(
         SMatrix::from_fn(|i, j| {
             let y = roundf(
                 constants.0 as f32

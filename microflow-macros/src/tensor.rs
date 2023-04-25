@@ -81,7 +81,7 @@ where
         let zero_point = &self.zero_point;
 
         let output = quote! {
-            microflow::tensor::QuantizedTensor::new(
+            microflow::tensor::QuantizedTensor2D::new(
                 #matrix,
                 #scale,
                 #zero_point

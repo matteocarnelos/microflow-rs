@@ -92,8 +92,8 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let tokens = quote! {
         struct Model;
         impl Model {
-            pub fn evaluate(input: nalgebra::SMatrix<f32, #input_rows, #input_columns>) -> nalgebra::SMatrix<f32, #output_rows, #output_columns> {
-                let output = microflow::tensor::QuantizedTensor::quantize(input, #input_scale, #input_zero_point);
+            pub fn evaluate(input: microflow::tensor::Buffer2D<f32, #input_rows, #input_columns>) -> microflow::tensor::Buffer2D<f32, #output_rows, #output_columns> {
+                let output = microflow::tensor::QuantizedTensor2D::quantize(input, #input_scale, #input_zero_point);
                 #layers
                 output.dequantize()
             }

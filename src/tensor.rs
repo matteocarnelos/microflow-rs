@@ -1,42 +1,259 @@
 use core::fmt::Debug;
 
 use libm::roundf;
-use nalgebra::{convert_unchecked, SMatrix, Scalar};
-use simba::scalar::SupersetOf;
+use nalgebra::{SMatrix, Scalar};
+use simba::scalar::{SubsetOf, SupersetOf};
+
+pub type Buffer2D<T, const D1: usize, const D2: usize> = SMatrix<T, D1, D2>;
+pub type Buffer4D<T, const D1: usize, const D2: usize, const D3: usize, const D4: usize> =
+    [SMatrix<[T; D4], D2, D3>; D1];
+
+pub trait Quantized: Scalar + Copy + SubsetOf<i32> + SubsetOf<f32> {}
+impl<T: Scalar + Copy + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
 
 #[derive(Debug)]
-pub struct QuantizedTensor<T, const R: usize, const C: usize> {
-    pub matrix: SMatrix<T, R, C>,
+pub struct QuantizedTensor2D<T, const D1: usize, const D2: usize> {
+    pub buffer: Buffer2D<T, D1, D2>,
     pub scale: f32,
     pub zero_point: T,
 }
 
-impl<T, const R: usize, const C: usize> QuantizedTensor<T, R, C>
-where
-    T: Scalar,
-    i32: SupersetOf<T>,
-    f32: SupersetOf<T>,
+impl<T: Quantized, const D1: usize, const D2: usize> QuantizedTensor2D<T, D1, D2> {
+    pub fn new(buffer: Buffer2D<T, D1, D2>, scale: f32, zero_point: T) -> Self {
+        Self {
+            buffer,
+            scale,
+            zero_point,
+        }
+    }
+
+    pub fn quantize(input: Buffer2D<f32, D1, D2>, scale: f32, zero_point: T) -> Self {
+        Self::new(
+            input.map(|f| quantize(f, scale, zero_point)),
+            scale,
+            zero_point,
+        )
+    }
+
+    pub fn dequantize(self) -> Buffer2D<f32, D1, D2> {
+        self.buffer
+            .map(|q| dequantize(q, self.scale, self.zero_point))
+    }
+}
+
+impl<
+        T: Quantized,
+        const D41: usize,
+        const D42: usize,
+        const D43: usize,
+        const D44: usize,
+        const D21: usize,
+        const D22: usize,
+    > From<QuantizedTensor4D<T, D41, D42, D43, D44>> for QuantizedTensor2D<T, D21, D22>
 {
-    pub fn new(matrix: SMatrix<T, R, C>, scale: f32, zero_point: T) -> Self {
-        Self {
-            matrix,
-            scale,
-            zero_point,
-        }
-    }
-
-    pub fn quantize(input: SMatrix<f32, R, C>, scale: f32, zero_point: T) -> Self {
-        Self {
-            matrix: convert_unchecked(
-                input.map(|f| roundf(f / scale + f32::from_subset(&zero_point))),
+    fn from(tensor: QuantizedTensor4D<T, D41, D42, D43, D44>) -> Self {
+        Self::new(
+            // TODO: Optimize conversion by removing the transpose
+            Buffer2D::from_row_iterator(
+                tensor
+                    .buffer
+                    .map(|m| m.transpose())
+                    .iter()
+                    .flatten()
+                    .flatten()
+                    .copied(),
             ),
+            tensor.scale[0],
+            tensor.zero_point[0],
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct QuantizedTensor4D<T, const D1: usize, const D2: usize, const D3: usize, const D4: usize>
+{
+    pub buffer: Buffer4D<T, D1, D2, D3, D4>,
+    pub scale: [f32; D4],
+    pub zero_point: [T; D4],
+}
+
+impl<T: Quantized, const D1: usize, const D2: usize, const D3: usize, const D4: usize>
+    QuantizedTensor4D<T, D1, D2, D3, D4>
+{
+    pub fn new(buffer: Buffer4D<T, D1, D2, D3, D4>, scale: [f32; D4], zero_point: [T; D4]) -> Self {
+        Self {
+            buffer,
             scale,
             zero_point,
         }
     }
 
-    pub fn dequantize(self) -> SMatrix<f32, R, C> {
-        self.matrix
-            .map(|q| self.scale * (f32::from_subset(&q) - f32::from_subset(&self.zero_point)))
+    pub fn quantize(
+        input: Buffer4D<f32, D1, D2, D3, D4>,
+        scale: [f32; D4],
+        zero_point: [T; D4],
+    ) -> Self {
+        Self::new(
+            input.map(|m| {
+                m.map(|a| {
+                    let mut iter = 0..D4;
+                    a.map(|f| {
+                        let i = iter.next().unwrap();
+                        quantize(f, scale[i], zero_point[i])
+                    })
+                })
+            }),
+            scale,
+            zero_point,
+        )
+    }
+
+    pub fn dequantize(self) -> Buffer4D<f32, D1, D2, D3, D4> {
+        self.buffer.map(|m| {
+            m.map(|a| {
+                let mut iter = 0..D4;
+                a.map(|q| {
+                    let i = iter.next().unwrap();
+                    dequantize(q, self.scale[i], self.zero_point[i])
+                })
+            })
+        })
+    }
+}
+
+fn quantize<T: Quantized>(input: f32, scale: f32, zero_point: T) -> T {
+    roundf(input / scale + f32::from_subset(&zero_point)).to_subset_unchecked()
+}
+
+fn dequantize<T: Quantized>(input: T, scale: f32, zero_point: T) -> f32 {
+    scale * (f32::from_subset(&input) - f32::from_subset(&zero_point))
+}
+
+#[cfg(test)]
+mod tests {
+    use nalgebra::matrix;
+
+    use super::*;
+
+    const TENSOR_2D_BUFFER: Buffer2D<f32, 2, 3> = matrix![
+        1., 2., 3.;
+        4., 5., 6.
+    ];
+    const TENSOR_2D_SCALE: f32 = 0.7;
+    const TENSOR_2D_ZERO_POINT: i8 = 8;
+    const TENSOR_2D_BUFFER_QUANTIZED: Buffer2D<i8, 2, 3> = matrix![
+        9,  11, 12;
+        14, 15, 17
+    ];
+    const TENSOR_2D_BUFFER_DEQUANTIZED: Buffer2D<f32, 2, 3> = matrix![
+        0.7, 2.1, 2.8;
+        4.2, 4.9, 6.2999997
+    ];
+
+    const TENSOR_4D_BUFFER: Buffer4D<f32, 2, 2, 3, 2> = [
+        matrix![
+            [1., 2.], [3., 4.],  [5., 6.];
+            [7., 8.], [9., 10.], [11., 12.]
+        ],
+        matrix![
+            [13., 14.], [15., 16.], [17., 18.];
+            [19., 20.], [21., 22.], [23., 24.]
+        ],
+    ];
+    const TENSOR_4D_SCALE: [f32; 2] = [0.25, 0.26];
+    const TENSOR_4D_ZERO_POINT: [i8; 2] = [27, 28];
+    const TENSOR_4D_BUFFER_QUANTIZED: Buffer4D<i8, 2, 2, 3, 2> = [
+        matrix![
+            [31, 36], [39, 43], [47, 51];
+            [55, 59], [63, 66], [71, 74]
+        ],
+        matrix![
+            [79, 82],   [87, 90],   [95, 97];
+            [103, 105], [111, 113], [119, 120]
+        ],
+    ];
+    const TENSOR_4D_BUFFER_DEQUANTIZED: Buffer4D<f32, 2, 2, 3, 2> = [
+        matrix![
+            [1., 2.08],     [3., 3.8999999],  [5., 5.9799995];
+            [7., 8.059999], [9., 9.879999],   [11., 11.959999]
+        ],
+        matrix![
+            [13., 14.039999], [15., 16.119999], [17., 17.939999];
+            [19., 20.019999], [21., 22.099998], [23., 23.919998]
+        ],
+    ];
+
+    const TENSOR_4D_TO_TENSOR_2D_BUFFER: Buffer2D<i8, 2, 12> = matrix![
+        31, 36, 39, 43, 47, 51, 55,  59,  63,  66,  71,  74;
+        79, 82, 87, 90, 95, 97, 103, 105, 111, 113, 119, 120
+    ];
+
+    #[test]
+    fn new_tensor_2d() {
+        let tensor = QuantizedTensor2D::new(
+            TENSOR_2D_BUFFER_QUANTIZED,
+            TENSOR_2D_SCALE,
+            TENSOR_2D_ZERO_POINT,
+        );
+        assert_eq!(TENSOR_2D_BUFFER_QUANTIZED, tensor.buffer);
+        assert_eq!(TENSOR_2D_SCALE, tensor.scale);
+        assert_eq!(TENSOR_2D_ZERO_POINT, tensor.zero_point);
+    }
+
+    #[test]
+    fn quantize_tensor_2d() {
+        let tensor =
+            QuantizedTensor2D::quantize(TENSOR_2D_BUFFER, TENSOR_2D_SCALE, TENSOR_2D_ZERO_POINT);
+        assert_eq!(TENSOR_2D_BUFFER_QUANTIZED, tensor.buffer);
+    }
+
+    #[test]
+    fn dequantize_tensor_2d() {
+        let tensor = QuantizedTensor2D::new(
+            TENSOR_2D_BUFFER_QUANTIZED,
+            TENSOR_2D_SCALE,
+            TENSOR_2D_ZERO_POINT,
+        );
+        assert_eq!(TENSOR_2D_BUFFER_DEQUANTIZED, tensor.dequantize());
+    }
+
+    #[test]
+    fn new_tensor_4d() {
+        let tensor = QuantizedTensor4D::new(
+            TENSOR_4D_BUFFER_QUANTIZED,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        assert_eq!(TENSOR_4D_BUFFER_QUANTIZED, tensor.buffer);
+        assert_eq!(TENSOR_4D_SCALE, tensor.scale);
+        assert_eq!(TENSOR_4D_ZERO_POINT, tensor.zero_point);
+    }
+
+    #[test]
+    fn quantize_tensor_4d() {
+        let tensor =
+            QuantizedTensor4D::quantize(TENSOR_4D_BUFFER, TENSOR_4D_SCALE, TENSOR_4D_ZERO_POINT);
+        assert_eq!(TENSOR_4D_BUFFER_QUANTIZED, tensor.buffer);
+    }
+
+    #[test]
+    fn dequantize_tensor_4d() {
+        let tensor = QuantizedTensor4D::new(
+            TENSOR_4D_BUFFER_QUANTIZED,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        assert_eq!(TENSOR_4D_BUFFER_DEQUANTIZED, tensor.dequantize());
+    }
+
+    #[test]
+    fn tensor_4d_to_tensor_2d() {
+        let tensor_4d = QuantizedTensor4D::new(
+            TENSOR_4D_BUFFER_QUANTIZED,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        let tensor_2d: QuantizedTensor2D<i8, 2, 12> = tensor_4d.into();
+        assert_eq!(TENSOR_4D_TO_TENSOR_2D_BUFFER, tensor_2d.buffer);
     }
 }

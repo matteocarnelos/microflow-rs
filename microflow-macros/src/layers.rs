@@ -107,7 +107,7 @@ impl ToTokens for FullyConnected {
                 .map(|c| TokenMatrix::from(dmatrix![*c]))
                 .collect();
             quote! {
-                let output = microflow::tensor::QuantizedTensor::new(
+                let output = microflow::tensor::QuantizedTensor2D::new(
                     nalgebra::SMatrix::from_columns(
                         &[
                             #(
@@ -118,7 +118,7 @@ impl ToTokens for FullyConnected {
                                     #output_zero_point,
                                     #activation,
                                     (#constant_0, #constant_1_vec, #constant_2, #constant_3_vec, #constant_4),
-                                ).matrix
+                                ).buffer
                             ),*
                         ]
                     ),
