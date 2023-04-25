@@ -1,15 +1,11 @@
 use core::fmt::Debug;
 
-use libm::roundf;
-use nalgebra::{SMatrix, Scalar};
-use simba::scalar::{SubsetOf, SupersetOf};
+use crate::quantize::{dequantize, quantize, Quantized};
+use nalgebra::SMatrix;
 
 pub type Buffer2D<T, const D1: usize, const D2: usize> = SMatrix<T, D1, D2>;
 pub type Buffer4D<T, const D1: usize, const D2: usize, const D3: usize, const D4: usize> =
     [SMatrix<[T; D4], D2, D3>; D1];
-
-pub trait Quantized: Scalar + Copy + SubsetOf<i32> + SubsetOf<f32> {}
-impl<T: Scalar + Copy + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
 
 #[derive(Debug)]
 pub struct QuantizedTensor2D<T, const D1: usize, const D2: usize> {
@@ -43,15 +39,15 @@ impl<T: Quantized, const D1: usize, const D2: usize> QuantizedTensor2D<T, D1, D2
 
 impl<
         T: Quantized,
-        const D41: usize,
-        const D42: usize,
-        const D43: usize,
-        const D44: usize,
-        const D21: usize,
-        const D22: usize,
-    > From<QuantizedTensor4D<T, D41, D42, D43, D44>> for QuantizedTensor2D<T, D21, D22>
+        const D1: usize,
+        const D2: usize,
+        const D3: usize,
+        const D4: usize,
+        const D5: usize,
+        const D6: usize,
+    > From<QuantizedTensor4D<T, D1, D2, D3, D4>> for QuantizedTensor2D<T, D5, D6>
 {
-    fn from(tensor: QuantizedTensor4D<T, D41, D42, D43, D44>) -> Self {
+    fn from(tensor: QuantizedTensor4D<T, D1, D2, D3, D4>) -> Self {
         Self::new(
             // TODO: Optimize conversion by removing the transpose
             Buffer2D::from_row_iterator(
@@ -121,14 +117,6 @@ impl<T: Quantized, const D1: usize, const D2: usize, const D3: usize, const D4: 
     }
 }
 
-fn quantize<T: Quantized>(input: f32, scale: f32, zero_point: T) -> T {
-    roundf(input / scale + f32::from_subset(&zero_point)).to_subset_unchecked()
-}
-
-fn dequantize<T: Quantized>(input: T, scale: f32, zero_point: T) -> f32 {
-    scale * (f32::from_subset(&input) - f32::from_subset(&zero_point))
-}
-
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;
@@ -195,16 +183,16 @@ mod tests {
             TENSOR_2D_SCALE,
             TENSOR_2D_ZERO_POINT,
         );
-        assert_eq!(TENSOR_2D_BUFFER_QUANTIZED, tensor.buffer);
-        assert_eq!(TENSOR_2D_SCALE, tensor.scale);
-        assert_eq!(TENSOR_2D_ZERO_POINT, tensor.zero_point);
+        assert_eq!(tensor.buffer, TENSOR_2D_BUFFER_QUANTIZED);
+        assert_eq!(tensor.scale, TENSOR_2D_SCALE);
+        assert_eq!(tensor.zero_point, TENSOR_2D_ZERO_POINT);
     }
 
     #[test]
     fn quantize_tensor_2d() {
         let tensor =
             QuantizedTensor2D::quantize(TENSOR_2D_BUFFER, TENSOR_2D_SCALE, TENSOR_2D_ZERO_POINT);
-        assert_eq!(TENSOR_2D_BUFFER_QUANTIZED, tensor.buffer);
+        assert_eq!(tensor.buffer, TENSOR_2D_BUFFER_QUANTIZED);
     }
 
     #[test]
@@ -214,7 +202,7 @@ mod tests {
             TENSOR_2D_SCALE,
             TENSOR_2D_ZERO_POINT,
         );
-        assert_eq!(TENSOR_2D_BUFFER_DEQUANTIZED, tensor.dequantize());
+        assert_eq!(tensor.dequantize(), TENSOR_2D_BUFFER_DEQUANTIZED);
     }
 
     #[test]
@@ -224,16 +212,16 @@ mod tests {
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        assert_eq!(TENSOR_4D_BUFFER_QUANTIZED, tensor.buffer);
-        assert_eq!(TENSOR_4D_SCALE, tensor.scale);
-        assert_eq!(TENSOR_4D_ZERO_POINT, tensor.zero_point);
+        assert_eq!(tensor.buffer, TENSOR_4D_BUFFER_QUANTIZED);
+        assert_eq!(tensor.scale, TENSOR_4D_SCALE);
+        assert_eq!(tensor.zero_point, TENSOR_4D_ZERO_POINT);
     }
 
     #[test]
     fn quantize_tensor_4d() {
         let tensor =
             QuantizedTensor4D::quantize(TENSOR_4D_BUFFER, TENSOR_4D_SCALE, TENSOR_4D_ZERO_POINT);
-        assert_eq!(TENSOR_4D_BUFFER_QUANTIZED, tensor.buffer);
+        assert_eq!(tensor.buffer, TENSOR_4D_BUFFER_QUANTIZED);
     }
 
     #[test]
@@ -243,7 +231,7 @@ mod tests {
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        assert_eq!(TENSOR_4D_BUFFER_DEQUANTIZED, tensor.dequantize());
+        assert_eq!(tensor.dequantize(), TENSOR_4D_BUFFER_DEQUANTIZED);
     }
 
     #[test]
@@ -254,6 +242,6 @@ mod tests {
             TENSOR_4D_ZERO_POINT,
         );
         let tensor_2d: QuantizedTensor2D<i8, 2, 12> = tensor_4d.into();
-        assert_eq!(TENSOR_4D_TO_TENSOR_2D_BUFFER, tensor_2d.buffer);
+        assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
     }
 }
