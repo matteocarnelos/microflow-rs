@@ -29,6 +29,7 @@ pub fn fully_connected<const D1: usize, const D2: usize, const D3: usize>(
             match fused_activation {
                 ActivationType::NONE => y,
                 ActivationType::RELU => relu(y, zero_point),
+                ActivationType::RELU6 => relu6(y, scale, zero_point),
             }
         }),
         scale,
