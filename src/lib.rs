@@ -2,7 +2,8 @@
 
 pub use microflow_macros::*;
 
-pub mod activations;
+pub mod activation;
+pub mod buffer;
 pub mod ops;
 pub mod quantize;
 pub mod tensor;

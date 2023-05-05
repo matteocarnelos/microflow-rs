@@ -9,7 +9,7 @@ alias = "microflow"
 
 [tasks.all]
 dependencies = [
-    "examples-arduino",
+#    "examples-arduino",
     "examples-atsamx7x",
     "examples-esp32",
     "examples-qemu",
