@@ -15,7 +15,7 @@ struct Model;
 #[entry]
 fn main() -> ! {
     let x = 1.5;
-    let y_predicted = Model::evaluate(vector![x])[0];
+    let y_predicted = Model::predict(vector![x])[0];
     let y_exact = sinf(x);
     hprintln!();
     hprintln!("Predicted sin({}): {}", x, y_predicted);

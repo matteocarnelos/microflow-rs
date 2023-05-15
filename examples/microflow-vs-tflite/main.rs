@@ -15,7 +15,7 @@ fn main() {
         let x = record.get(0).unwrap();
         wtr.write_record([
             x,
-            Model::evaluate(matrix![x.parse::<f32>().unwrap()])[0]
+            Model::predict(matrix![x.parse::<f32>().unwrap()])[0]
                 .to_string()
                 .as_str(),
         ])

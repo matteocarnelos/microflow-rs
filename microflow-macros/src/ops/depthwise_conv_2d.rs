@@ -120,6 +120,7 @@ mod tests {
         };
         let weights = &layer.weights;
         let biases = &layer.biases;
+        let fused_activation = &layer.fused_activation;
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
@@ -130,13 +131,12 @@ mod tests {
                     [0.33f32, 0.34f32],
                     [35i8, 36i8],
                     microflow::ops::DepthwiseConv2DOptions {
-                        fused_activation: microflow::activation::FusedActivation::RELU6,
+                        fused_activation: #fused_activation,
                         padding: microflow::ops::DepthwiseConv2DPadding::SAME,
                         stride: (1usize, 1usize)
                     }
                 );
-            }
-            .to_string()
+            }.to_string()
         );
     }
 }

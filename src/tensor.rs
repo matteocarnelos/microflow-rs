@@ -266,7 +266,7 @@ mod tests {
             [TENSOR_4D_SCALE[0]],
             [TENSOR_4D_ZERO_POINT[0]],
         );
-        let tensor_2d: QuantizedTensor2D<i8, 2, 12> = tensor_4d.into();
+        let tensor_2d: QuantizedTensor2D<i8, 2, 12> = QuantizedTensor2D::from(tensor_4d);
         assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
     }
 }

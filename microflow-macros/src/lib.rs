@@ -117,7 +117,7 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     let tokens = quote! {
         struct Model;
         impl Model {
-            pub fn evaluate(input: #input_signature) -> #output_signature {
+            pub fn predict(input: #input_signature) -> #output_signature {
                 let output = #input_quantization;
                 #layers
                 output.dequantize()

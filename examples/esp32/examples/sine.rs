@@ -29,7 +29,7 @@ fn main() -> ! {
     wdt1.disable();
 
     let x = 1.5;
-    let y_predicted = Model::evaluate(vector![x])[0];
+    let y_predicted = Model::predict(vector![x])[0];
     let y_exact = sinf(x);
     println!(" ");
     println!("Predicted sin({}): {}", x, y_predicted);

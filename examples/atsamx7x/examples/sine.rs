@@ -25,7 +25,7 @@ mod app {
         rtt_init_print!();
 
         let x = 1.5;
-        let y_predicted = Model::evaluate(vector![x])[0];
+        let y_predicted = Model::predict(vector![x])[0];
         let y_exact = sinf(x);
         rprintln!("Predicted sin({}): {}", x, y_predicted);
         rprintln!("Exact sin({}): {}", x, y_exact);

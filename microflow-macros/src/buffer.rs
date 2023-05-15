@@ -5,10 +5,10 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
 #[derive(Debug)]
-pub(crate) struct TokenBuffer2D<T>(Option<DMatrix<T>>);
+pub(crate) struct TokenBuffer2D<T>(pub(crate) Option<DMatrix<T>>);
 
 #[derive(Debug)]
-pub(crate) struct TokenBuffer4D<T>(Option<Vec<DMatrix<Vec<T>>>>);
+pub(crate) struct TokenBuffer4D<T>(pub(crate) Option<Vec<DMatrix<Vec<T>>>>);
 
 impl<T> TokenBuffer2D<T> {
     pub(crate) fn new() -> Self {
@@ -93,6 +93,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn buffer_2d_new() {
+        assert_eq!(TokenBuffer2D::<i8>::new().0, None);
+    }
+
+    #[test]
+    fn buffer_2d_from_matrix() {
+        let matrix = dmatrix![1, 2, 3];
+        assert_eq!(TokenBuffer2D::from(matrix.clone()).0, Some(matrix));
+    }
+
+    #[test]
     fn buffer_2d_to_tokens() {
         let buffer = TokenBuffer2D::from(dmatrix![
             1i8, 2i8, 3i8;
@@ -108,6 +119,17 @@ mod tests {
             }
             .to_string()
         );
+    }
+
+    #[test]
+    fn buffer_4d_new() {
+        assert_eq!(TokenBuffer4D::<i8>::new().0, None);
+    }
+
+    #[test]
+    fn buffer_4d_from_data() {
+        let data = vec![dmatrix![vec![1], vec![2], vec![3]]];
+        assert_eq!(TokenBuffer4D::from(data.clone()).0, Some(data));
     }
 
     #[test]

@@ -20,7 +20,7 @@ fn main() -> ! {
     let mut serial = hal::default_serial!(dp, pins, 57600);
 
     let x = 1.5;
-    let y_predicted = Model::evaluate(vector![x])[0];
+    let y_predicted = Model::predict(vector![x])[0];
     let y_exact = sinf(x);
     let x_display = uFmt_f32::One(x);
     uwriteln!(

@@ -7,6 +7,6 @@ struct Model;
 
 fn main() {
     let input: [SMatrix<[f32; 1], 49, 40>; 1] = [SMatrix::from_element([0.])];
-    let y_predicted = Model::evaluate(input);
+    let y_predicted = Model::predict(input);
     println!("{}", y_predicted);
 }
