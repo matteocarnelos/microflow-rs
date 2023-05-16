@@ -42,9 +42,6 @@ mod tests {
 
     #[test]
     fn softmax_layer() {
-        assert_eq!(
-            softmax(INPUT, OUTPUT_SCALE, OUTPUT_ZERO_POINT),
-            OUTPUT
-        );
+        assert_eq!(softmax(INPUT, OUTPUT_SCALE, OUTPUT_ZERO_POINT), OUTPUT);
     }
 }

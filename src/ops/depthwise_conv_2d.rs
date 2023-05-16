@@ -115,8 +115,8 @@ pub fn convolve<
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::matrix;
     use super::*;
+    use nalgebra::matrix;
 
     const INPUT: Buffer4D<f32, 2, 2, 3, 2> = [
         matrix![
@@ -126,7 +126,7 @@ mod tests {
         matrix![
             [13., 14.], [15., 16.], [17., 18.];
             [19., 20.], [21., 22.], [23., 24.]
-        ]
+        ],
     ];
     const WEIGHTS: Buffer4D<f32, 2, 2, 3, 2> = [
         matrix![
@@ -136,7 +136,7 @@ mod tests {
         matrix![
             [37., 38.], [39., 40.], [41., 42.];
             [43., 44.], [45., 46.], [47., 48.]
-        ]
+        ],
     ];
     const BIASES: Buffer2D<f32, 2, 1> = matrix![
         49.;
@@ -147,20 +147,12 @@ mod tests {
     const STRIDE: (usize, usize) = (1, 1);
 
     #[test]
-    fn depthwise_conv_2d_layer() {
-
-    }
+    fn depthwise_conv_2d_layer() {}
 
     #[test]
     fn convolve_op() {
-        let output: Buffer4D<f32, 2, 2, 3, 2> = convolve(
-            INPUT,
-            WEIGHTS,
-            BIASES,
-            FUSED_ACTIVATION,
-            PADDING,
-            STRIDE
-        );
+        let output: Buffer4D<f32, 2, 2, 3, 2> =
+            convolve(INPUT, WEIGHTS, BIASES, FUSED_ACTIVATION, PADDING, STRIDE);
         assert_eq!(
             output,
             [
