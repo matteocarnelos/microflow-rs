@@ -45,7 +45,7 @@ mod tests {
     use super::*;
     use nalgebra::matrix;
 
-    const INPUT_TENSOR: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
+    const INPUT: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
         buffer: matrix![
             1, 2, 3;
             4, 5, 6
@@ -53,7 +53,7 @@ mod tests {
         scale: 0.7,
         zero_point: 8,
     };
-    const WEIGHTS_TENSOR: QuantizedTensor2D<i8, 3, 4> = QuantizedTensor2D {
+    const WEIGHTS: QuantizedTensor2D<i8, 3, 4> = QuantizedTensor2D {
         buffer: matrix![
             9, 10, 11, 12;
             13, 14, 15, 16;
@@ -62,7 +62,7 @@ mod tests {
         scale: 0.21,
         zero_point: 22,
     };
-    const _BIASES_TENSOR: QuantizedTensor2D<i8, 4, 1> = QuantizedTensor2D {
+    const _BIASES: QuantizedTensor2D<i8, 4, 1> = QuantizedTensor2D {
         buffer: matrix![
             23; 24; 25; 26
         ],
@@ -85,8 +85,8 @@ mod tests {
     fn fully_connected_layer() {
         assert_eq!(
             fully_connected(
-                &INPUT_TENSOR,
-                WEIGHTS_TENSOR,
+                &INPUT,
+                WEIGHTS,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,
                 OPTIONS,

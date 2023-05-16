@@ -21,7 +21,7 @@ mod tests {
     use super::*;
     use nalgebra::matrix;
 
-    const INPUT_TENSOR: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
+    const INPUT: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
         buffer: matrix![
             1, 2, 3;
             4, 5, 6
@@ -31,7 +31,7 @@ mod tests {
     };
     const OUTPUT_SCALE: f32 = 0.9;
     const OUTPUT_ZERO_POINT: i8 = 10;
-    const OUTPUT_TENSOR: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
+    const OUTPUT: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
         buffer: matrix![
             10, 10, 10;
             10, 10, 11
@@ -43,8 +43,8 @@ mod tests {
     #[test]
     fn softmax_layer() {
         assert_eq!(
-            softmax(INPUT_TENSOR, OUTPUT_SCALE, OUTPUT_ZERO_POINT),
-            OUTPUT_TENSOR
+            softmax(INPUT, OUTPUT_SCALE, OUTPUT_ZERO_POINT),
+            OUTPUT
         );
     }
 }
