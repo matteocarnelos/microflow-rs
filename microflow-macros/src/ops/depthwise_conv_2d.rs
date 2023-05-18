@@ -11,7 +11,7 @@ pub(crate) struct DepthwiseConv2D {
     pub(crate) output: TokenTensor4D<i8>,
     pub(crate) fused_activation: TokenFusedActivation,
     pub(crate) padding: Padding,
-    pub(crate) stride: (usize, usize),
+    pub(crate) strides: (usize, usize),
 }
 
 impl DepthwiseConv2D {
@@ -38,7 +38,7 @@ impl DepthwiseConv2D {
             fused_activation: TokenFusedActivation(options.fused_activation_function()),
             padding: options.padding(),
             // TODO: Check if swap is needed
-            stride: (options.stride_h() as usize, options.stride_w() as usize),
+            strides: (options.stride_h() as usize, options.stride_w() as usize),
         }
     }
 }
@@ -57,7 +57,7 @@ impl ToTokens for DepthwiseConv2D {
             Padding::VALID => quote!(microflow::ops::DepthwiseConv2DPadding::VALID),
             _ => unreachable!(),
         };
-        let (stride_0, stride_1) = &self.stride;
+        let (strides_0, strides_1) = &self.strides;
 
         let output = quote! {
             let output: microflow::tensor::QuantizedTensor4D<i8, #(#output_shape),*> = microflow::ops::depthwise_conv_2d(
@@ -69,7 +69,7 @@ impl ToTokens for DepthwiseConv2D {
                 microflow::ops::DepthwiseConv2DOptions {
                     fused_activation: #fused_activation,
                     padding: #padding,
-                    stride: (#stride_0, #stride_1)
+                    strides: (#strides_0, #strides_1)
                 }
             );
         };
@@ -116,7 +116,7 @@ mod tests {
             },
             fused_activation: TokenFusedActivation(ActivationFunctionType::RELU6),
             padding: Padding::SAME,
-            stride: (1, 1),
+            strides: (1, 1),
         };
         let weights = &layer.weights;
         let biases = &layer.biases;
@@ -133,7 +133,7 @@ mod tests {
                     microflow::ops::DepthwiseConv2DOptions {
                         fused_activation: #fused_activation,
                         padding: microflow::ops::DepthwiseConv2DPadding::SAME,
-                        stride: (1usize, 1usize)
+                        strides: (1usize, 1usize)
                     }
                 );
             }.to_string()

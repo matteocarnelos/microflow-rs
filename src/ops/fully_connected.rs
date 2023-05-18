@@ -62,7 +62,7 @@ mod tests {
         scale: 0.21,
         zero_point: 22,
     };
-    const _BIASES: QuantizedTensor2D<i8, 4, 1> = QuantizedTensor2D {
+    const _BIASES: QuantizedTensor2D<i32, 4, 1> = QuantizedTensor2D {
         buffer: matrix![
             23; 24; 25; 26
         ],
