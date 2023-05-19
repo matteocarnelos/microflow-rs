@@ -1,20 +1,25 @@
 use crate::activation::TokenFusedActivation;
+use crate::quantize::TokenQuantized;
 use crate::tensor::{TokenTensor2D, TokenTensor4D};
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Padding, Tensor};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
+use simba::scalar::SupersetOf;
 
-pub(crate) struct DepthwiseConv2D {
-    pub(crate) weights: TokenTensor4D<i8>,
-    pub(crate) biases: TokenTensor2D<i32>,
-    pub(crate) output: TokenTensor4D<i8>,
+pub(crate) struct DepthwiseConv2D<T1: TokenQuantized, T2: TokenQuantized> {
+    pub(crate) weights: TokenTensor4D<T1>,
+    pub(crate) biases: TokenTensor2D<T2>,
+    pub(crate) output: TokenTensor4D<T1>,
     pub(crate) fused_activation: TokenFusedActivation,
     pub(crate) padding: Padding,
     pub(crate) strides: (usize, usize),
 }
 
-impl DepthwiseConv2D {
+impl<T1: TokenQuantized, T2: TokenQuantized> DepthwiseConv2D<T1, T2>
+where
+    T2: SupersetOf<T1>,
+{
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -43,7 +48,7 @@ impl DepthwiseConv2D {
     }
 }
 
-impl ToTokens for DepthwiseConv2D {
+impl<T1: TokenQuantized, T2: TokenQuantized> ToTokens for DepthwiseConv2D<T1, T2> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut output_shape = self.output.shape.clone();
         output_shape.push(self.output.scale.len());
@@ -60,7 +65,7 @@ impl ToTokens for DepthwiseConv2D {
         let (strides_0, strides_1) = &self.strides;
 
         let output = quote! {
-            let output: microflow::tensor::QuantizedTensor4D<i8, #(#output_shape),*> = microflow::ops::depthwise_conv_2d(
+            let output: microflow::tensor::Tensor4D<i8, #(#output_shape),*> = microflow::ops::depthwise_conv_2d(
                 output.into(),
                 #weights,
                 #biases,
@@ -124,7 +129,7 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let output: microflow::tensor::QuantizedTensor4D<i8, 2usize, 2usize, 3usize, 2usize, 2usize> = microflow::ops::depthwise_conv_2d(
+                let output: microflow::tensor::Tensor4D<i8, 2usize, 2usize, 3usize, 2usize, 2usize> = microflow::ops::depthwise_conv_2d(
                     output.into(),
                     #weights,
                     #biases,

@@ -5,14 +5,14 @@ use crate::buffer::{Buffer2D, Buffer4D};
 use crate::quantize::{dequantize, quantize, Quantized};
 
 #[derive(Debug, PartialEq)]
-pub struct QuantizedTensor2D<T: Quantized, const D1: usize, const D2: usize> {
+pub struct Tensor2D<T: Quantized, const D1: usize, const D2: usize> {
     pub buffer: Buffer2D<T, D1, D2>,
     pub scale: f32,
     pub zero_point: T,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct QuantizedTensor4D<
+pub struct Tensor4D<
     T: Quantized,
     const D1: usize,
     const D2: usize,
@@ -25,7 +25,7 @@ pub struct QuantizedTensor4D<
     pub zero_point: [T; D4_OR_1],
 }
 
-impl<T: Quantized, const D1: usize, const D2: usize> QuantizedTensor2D<T, D1, D2> {
+impl<T: Quantized, const D1: usize, const D2: usize> Tensor2D<T, D1, D2> {
     pub fn new(buffer: Buffer2D<T, D1, D2>, scale: f32, zero_point: T) -> Self {
         Self {
             buffer,
@@ -56,10 +56,9 @@ impl<
         const D4: usize,
         const D4_OR_1: usize,
         const D2_X_D3_X_D4: usize,
-    > From<QuantizedTensor4D<T, D1, D2, D3, D4, D4_OR_1>>
-    for QuantizedTensor2D<T, D1, D2_X_D3_X_D4>
+    > From<Tensor4D<T, D1, D2, D3, D4, D4_OR_1>> for Tensor2D<T, D1, D2_X_D3_X_D4>
 {
-    fn from(tensor: QuantizedTensor4D<T, D1, D2, D3, D4, D4_OR_1>) -> Self {
+    fn from(tensor: Tensor4D<T, D1, D2, D3, D4, D4_OR_1>) -> Self {
         Self::new(
             // TODO: Optimize conversion by removing the transpose
             Buffer2D::from_row_iterator(
@@ -84,7 +83,7 @@ impl<
         const D3: usize,
         const D4: usize,
         const D4_OR_1: usize,
-    > QuantizedTensor4D<T, D1, D2, D3, D4, D4_OR_1>
+    > Tensor4D<T, D1, D2, D3, D4, D4_OR_1>
 {
     pub fn new(
         buffer: Buffer4D<T, D1, D2, D3, D4>,
@@ -203,7 +202,7 @@ mod tests {
 
     #[test]
     fn new_tensor_2d() {
-        let tensor = QuantizedTensor2D::new(
+        let tensor = Tensor2D::new(
             TENSOR_2D_BUFFER_QUANTIZED,
             TENSOR_2D_SCALE,
             TENSOR_2D_ZERO_POINT,
@@ -215,14 +214,13 @@ mod tests {
 
     #[test]
     fn quantize_tensor_2d() {
-        let tensor =
-            QuantizedTensor2D::quantize(TENSOR_2D_BUFFER, TENSOR_2D_SCALE, TENSOR_2D_ZERO_POINT);
+        let tensor = Tensor2D::quantize(TENSOR_2D_BUFFER, TENSOR_2D_SCALE, TENSOR_2D_ZERO_POINT);
         assert_eq!(tensor.buffer, TENSOR_2D_BUFFER_QUANTIZED);
     }
 
     #[test]
     fn dequantize_tensor_2d() {
-        let tensor = QuantizedTensor2D::new(
+        let tensor = Tensor2D::new(
             TENSOR_2D_BUFFER_QUANTIZED,
             TENSOR_2D_SCALE,
             TENSOR_2D_ZERO_POINT,
@@ -232,7 +230,7 @@ mod tests {
 
     #[test]
     fn new_tensor_4d() {
-        let tensor = QuantizedTensor4D::new(
+        let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
@@ -244,14 +242,13 @@ mod tests {
 
     #[test]
     fn quantize_tensor_4d() {
-        let tensor =
-            QuantizedTensor4D::quantize(TENSOR_4D_BUFFER, TENSOR_4D_SCALE, TENSOR_4D_ZERO_POINT);
+        let tensor = Tensor4D::quantize(TENSOR_4D_BUFFER, TENSOR_4D_SCALE, TENSOR_4D_ZERO_POINT);
         assert_eq!(tensor.buffer, TENSOR_4D_BUFFER_QUANTIZED);
     }
 
     #[test]
     fn dequantize_tensor_4d() {
-        let tensor = QuantizedTensor4D::new(
+        let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
@@ -261,12 +258,12 @@ mod tests {
 
     #[test]
     fn tensor_4d_to_tensor_2d() {
-        let tensor_4d = QuantizedTensor4D::new(
+        let tensor_4d = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             [TENSOR_4D_SCALE[0]],
             [TENSOR_4D_ZERO_POINT[0]],
         );
-        let tensor_2d: QuantizedTensor2D<i8, 2, 12> = QuantizedTensor2D::from(tensor_4d);
+        let tensor_2d: Tensor2D<i8, 2, 12> = Tensor2D::from(tensor_4d);
         assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
     }
 }

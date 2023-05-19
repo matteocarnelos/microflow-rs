@@ -2,21 +2,46 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::{convert_ref, dmatrix, DMatrix};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
+use simba::scalar::SupersetOf;
 
 use crate::activation::TokenFusedActivation;
 use crate::buffer::TokenBuffer2D;
+use crate::quantize::TokenQuantized;
 use crate::tensor::TokenTensor2D;
-use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor};
+use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 
-pub(crate) struct FullyConnected {
-    pub(crate) weights: TokenTensor2D<i8>,
-    pub(crate) output: TokenTensor2D<i8>,
+pub(crate) struct FullyConnected<T1: TokenQuantized, T2: TokenQuantized> {
+    pub(crate) weights: TokenTensor2D<T1>,
+    pub(crate) output: TokenTensor2D<T1>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32),
+    pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<T2>, T2),
     pub(crate) capacity: Option<usize>,
 }
 
-impl FullyConnected {
+pub(crate) fn parse(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>, buffers: Vector<ForwardsUOffset<Buffer>>, capacity: Option<usize>) -> Box<dyn ToTokens> {
+    let inputs = operator.inputs().unwrap();
+    let input_type = tensors.get(inputs.get(0) as usize).type_();
+    let input = match input_type {
+        TensorType::INT8 => TokenTensor2D::<i8>::from_empty_tensor(tensors.get(inputs.get(0) as usize)),
+        TensorType::UINT8 => TokenTensor2D::<u8>::from_empty_tensor(tensors.get(inputs.get(0) as usize))
+    };
+    let weights =
+        TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(1) as usize), buffers);
+    let biases =
+        TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers);
+    let output = TokenTensor2D::from_empty_tensor(
+        tensors.get(operator.outputs().unwrap().get(0) as usize),
+    );
+    let options = operator
+        .builtin_options_as_fully_connected_options()
+        .unwrap();
+    Box::new(FullyConnected::<i8, i32>::new(operator, tensors, buffers, capacity))
+}
+
+impl<T1: TokenQuantized, T2: TokenQuantized> FullyConnected<T1, T2>
+where
+    T2: SupersetOf<T1>,
+{
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -46,25 +71,29 @@ impl FullyConnected {
     }
 
     fn preprocess(
-        input: &TokenTensor2D<i8>,
-        weights: &TokenTensor2D<i8>,
-        biases: &TokenTensor2D<i32>,
-        output: &TokenTensor2D<i8>,
-    ) -> (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32) {
+        input: &TokenTensor2D<T1>,
+        weights: &TokenTensor2D<T1>,
+        biases: &TokenTensor2D<T2>,
+        output: &TokenTensor2D<T1>,
+    ) -> (TokenBuffer2D<f32>, f32, TokenBuffer2D<T2>, T2) {
         (
             TokenBuffer2D::from(
                 biases.scale / output.scale
-                    * biases.buffer.add_scalar(-biases.zero_point).cast::<f32>(),
+                    * biases.buffer.map::<T2, _>(|e| e - biases.zero_point).cast::<f32>(),
             ),
             input.scale * weights.scale / output.scale,
-            TokenBuffer2D::from(DMatrix::from_rows(&[(input.zero_point as i32
-                * convert_ref::<DMatrix<i8>, DMatrix<i32>>(&weights.buffer).row_sum())])),
-            input.shape[1] as i32 * input.zero_point as i32 * weights.zero_point as i32,
+            TokenBuffer2D::from(DMatrix::from_rows(&[
+                convert_ref::<DMatrix<T1>, DMatrix<T2>>(&weights.buffer).row_sum()
+                    * T2::from_subset(&input.zero_point),
+            ])),
+            T2::from_subset(&input.shape[1])
+                * T2::from_subset(&input.zero_point)
+                * T2::from_subset(&weights.zero_point),
         )
     }
 }
 
-impl ToTokens for FullyConnected {
+impl<T1: TokenQuantized, T2: TokenQuantized> ToTokens for FullyConnected<T1, T2> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let weights = &self.weights;
         let output_scale = &self.output.scale;
@@ -96,7 +125,7 @@ impl ToTokens for FullyConnected {
                 .map(|c| TokenBuffer2D::from(dmatrix![*c]))
                 .collect();
             quote! {
-                let output = microflow::tensor::QuantizedTensor2D::new(
+                let output = microflow::tensor::Tensor2D::new(
                     microflow::buffer::Buffer2D::from_columns(
                         &[
                             #(
@@ -275,7 +304,7 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let output = microflow::tensor::QuantizedTensor2D::new(
+                let output = microflow::tensor::Tensor2D::new(
                     microflow::buffer::Buffer2D::from_columns(
                         &[
                             microflow::ops::fully_connected(

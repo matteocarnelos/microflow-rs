@@ -6,16 +6,19 @@ use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
+use simba::scalar::SupersetOf;
 use syn::parse_macro_input;
 
 use structmeta::StructMeta;
 use syn::{LitInt, LitStr};
 use tensor::{TokenTensor2D, TokenTensor4D};
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
+use crate::quantize::TokenQuantized;
 
 mod activation;
 mod buffer;
 mod ops;
+mod quantize;
 mod tensor;
 #[path = "../flatbuffers/tflite_generated.rs"]
 #[allow(unused_imports)]
@@ -63,14 +66,15 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
         let input_scale = input.scale;
         let input_zero_point = input.zero_point;
         quote!(microflow::buffer::Buffer2D<f32, #(#input_shape),*>).to_tokens(&mut input_signature);
-        quote!(microflow::tensor::QuantizedTensor2D::quantize(input, #input_scale, #input_zero_point)).to_tokens(&mut input_quantization);
+        quote!(microflow::tensor::Tensor2D::quantize(input, #input_scale, #input_zero_point))
+            .to_tokens(&mut input_quantization);
     } else if input_shape.len() == 4 {
         let input: TokenTensor4D<i8> = TokenTensor4D::from_empty_tensor(input);
         let input_shape = input.shape;
         let input_scale = input.scale;
         let input_zero_point = input.zero_point;
         quote!(microflow::buffer::Buffer4D<f32, #(#input_shape),*>).to_tokens(&mut input_signature);
-        quote!(microflow::tensor::QuantizedTensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*])).to_tokens(&mut input_quantization);
+        quote!(microflow::tensor::Tensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*])).to_tokens(&mut input_quantization);
     } else {
         unimplemented!()
     }
@@ -85,12 +89,12 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
                 .get(operator.opcode_index() as usize)
                 .deprecated_builtin_code() as i32,
         ) {
-            BuiltinOperator::FULLY_CONNECTED => Box::new(ops::FullyConnected::new(
-                operator, tensors, buffers, capacity,
-            )),
-            BuiltinOperator::DEPTHWISE_CONV_2D => {
-                Box::new(ops::DepthwiseConv2D::new(operator, tensors, buffers))
-            }
+            BuiltinOperator::FULLY_CONNECTED => Box::new(
+                ops::FullyConnected::new(operator, tensors, buffers, capacity)
+            ),
+            BuiltinOperator::DEPTHWISE_CONV_2D => Box::new(
+                ops::DepthwiseConv2D::new(operator, tensors, buffers)
+            ),
             BuiltinOperator::SOFTMAX => Box::new(ops::Softmax::new(operator, tensors)),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };

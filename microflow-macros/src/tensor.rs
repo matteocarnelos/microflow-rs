@@ -1,17 +1,17 @@
 use std::mem::size_of;
 
-use byterepr::ByteReprNum;
 use flatbuffers::{ForwardsUOffset, Vector};
-use nalgebra::{DMatrix, Scalar};
+use nalgebra::DMatrix;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use simba::scalar::SupersetOf;
 
 use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
+use crate::quantize::TokenQuantized;
 use crate::tflite_flatbuffers::tflite::{Buffer, Tensor};
 
 #[derive(Debug)]
-pub(crate) struct TokenTensor2D<T> {
+pub(crate) struct TokenTensor2D<T: TokenQuantized> {
     pub(crate) buffer: TokenBuffer2D<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) scale: f32,
@@ -19,18 +19,14 @@ pub(crate) struct TokenTensor2D<T> {
 }
 
 #[derive(Debug)]
-pub(crate) struct TokenTensor4D<T> {
+pub(crate) struct TokenTensor4D<T: TokenQuantized> {
     pub(crate) buffer: TokenBuffer4D<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) scale: Vec<f32>,
     pub(crate) zero_point: Vec<T>,
 }
 
-impl<T> TokenTensor2D<T>
-where
-    T: Scalar + ByteReprNum,
-    i64: SupersetOf<T>,
-{
+impl<T: TokenQuantized> TokenTensor2D<T> {
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
         Self {
             buffer: TokenBuffer2D::new(),
@@ -69,16 +65,13 @@ where
     }
 }
 
-impl<T> ToTokens for TokenTensor2D<T>
-where
-    T: ToTokens,
-{
+impl<T: TokenQuantized> ToTokens for TokenTensor2D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let buffer = &self.buffer;
         let scale = &self.scale;
         let zero_point = &self.zero_point;
         let output = quote! {
-            microflow::tensor::QuantizedTensor2D::new(
+            microflow::tensor::Tensor2D::new(
                 #buffer,
                 #scale,
                 #zero_point
@@ -88,11 +81,7 @@ where
     }
 }
 
-impl<T> TokenTensor4D<T>
-where
-    T: Scalar + ByteReprNum,
-    i64: SupersetOf<T>,
-{
+impl<T: TokenQuantized> TokenTensor4D<T> {
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
         Self {
             buffer: TokenBuffer4D::new(),
@@ -143,16 +132,13 @@ where
     }
 }
 
-impl<T> ToTokens for TokenTensor4D<T>
-where
-    T: ToTokens,
-{
+impl<T: TokenQuantized> ToTokens for TokenTensor4D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let buffer = &self.buffer;
         let scale = &self.scale;
         let zero_point = &self.zero_point;
         let output = quote! {
-            microflow::tensor::QuantizedTensor4D::new(
+            microflow::tensor::Tensor4D::new(
                 #buffer,
                 [#(#scale),*],
                 [#(#zero_point),*]
@@ -164,9 +150,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use nalgebra::dmatrix;
+
+    use super::*;
 
     #[test]
     fn tensor_2d_to_tokens() {
@@ -183,7 +169,7 @@ mod tests {
         assert_eq!(
             tensor.to_token_stream().to_string(),
             quote! {
-                microflow::tensor::QuantizedTensor2D::new(
+                microflow::tensor::Tensor2D::new(
                     #buffer,
                     0.7f32,
                     8i8
@@ -214,7 +200,7 @@ mod tests {
         assert_eq!(
             tensor.to_token_stream().to_string(),
             quote! {
-                microflow::tensor::QuantizedTensor4D::new(
+                microflow::tensor::Tensor4D::new(
                     #buffer,
                     [0.25f32, 0.26f32],
                     [27i8, 28i8]

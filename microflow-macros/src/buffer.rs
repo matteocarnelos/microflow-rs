@@ -22,10 +22,7 @@ impl<T> From<DMatrix<T>> for TokenBuffer2D<T> {
     }
 }
 
-impl<T> ToTokens for TokenBuffer2D<T>
-where
-    T: ToTokens,
-{
+impl<T: ToTokens> ToTokens for TokenBuffer2D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let mut rows: Vec<TokenStream2> = Vec::new();
         for row in self.row_iter() {
@@ -56,10 +53,7 @@ impl<T> From<Vec<DMatrix<Vec<T>>>> for TokenBuffer4D<T> {
     }
 }
 
-impl<T> ToTokens for TokenBuffer4D<T>
-where
-    T: ToTokens,
-{
+impl<T: ToTokens> ToTokens for TokenBuffer4D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let mut batches: Vec<TokenStream2> = Vec::new();
         for batch in self.iter() {

@@ -8,6 +8,7 @@ microflow-macros = { version = "0.1", path = "microflow-macros" }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 simba = { version = "0.8", default-features = false }
 libm = "0.2"
+num-traits = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 csv = "1.2"

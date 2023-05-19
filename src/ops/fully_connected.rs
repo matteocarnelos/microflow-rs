@@ -1,34 +1,39 @@
 use libm::roundf;
+use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
-use crate::tensor::QuantizedTensor2D;
-
-// TODO: Implement for `u8`
+use crate::quantize::Quantized;
+use crate::tensor::Tensor2D;
 
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
 
-pub fn fully_connected<const D1: usize, const D2: usize, const D3: usize>(
-    input: &QuantizedTensor2D<i8, D1, D2>,
-    weights: QuantizedTensor2D<i8, D2, D3>,
+pub fn fully_connected<T1, T2, const D1: usize, const D2: usize, const D3: usize>(
+    input: &Tensor2D<T1, D1, D2>,
+    weights: Tensor2D<T1, D2, D3>,
     output_scale: f32,
-    output_zero_point: i8,
+    output_zero_point: T1,
     options: FullyConnectedOptions,
-    constants: (Buffer2D<f32, D3, 1>, f32, Buffer2D<i32, 1, D3>, i32),
-) -> QuantizedTensor2D<i8, D1, D3> {
+    constants: (Buffer2D<f32, D3, 1>, f32, Buffer2D<T2, 1, D3>, T2),
+) -> Tensor2D<T1, D1, D3>
+where
+    T1: Quantized,
+    T2: Quantized + SupersetOf<T1>,
+{
     let x = (
-        input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
-        weights.zero_point as i32 * input.buffer.cast::<i32>().column_sum(),
+        input.buffer.cast::<T2>() * weights.buffer.cast::<T2>(),
+        input.buffer.cast::<T2>().column_sum() * T2::from_subset(&weights.zero_point),
     );
-    QuantizedTensor2D::new(
+    Tensor2D::new(
         Buffer2D::from_fn(|i, j| {
-            let y = roundf(
-                output_zero_point as f32
+            let y = T1::from_superset_unchecked(&roundf(
+                f32::from_subset(&output_zero_point)
                     + constants.0[j]
-                    + constants.1 * (x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3) as f32,
-            ) as i8;
+                    + constants.1
+                        * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
+            ));
             match options.fused_activation {
                 FusedActivation::NONE => y,
                 FusedActivation::RELU => relu(y, output_zero_point),
@@ -45,7 +50,7 @@ mod tests {
     use super::*;
     use nalgebra::matrix;
 
-    const INPUT: QuantizedTensor2D<i8, 2, 3> = QuantizedTensor2D {
+    const INPUT: Tensor2D<i8, 2, 3> = Tensor2D {
         buffer: matrix![
             1, 2, 3;
             4, 5, 6
@@ -53,7 +58,7 @@ mod tests {
         scale: 0.7,
         zero_point: 8,
     };
-    const WEIGHTS: QuantizedTensor2D<i8, 3, 4> = QuantizedTensor2D {
+    const WEIGHTS: Tensor2D<i8, 3, 4> = Tensor2D {
         buffer: matrix![
             9, 10, 11, 12;
             13, 14, 15, 16;
@@ -62,7 +67,7 @@ mod tests {
         scale: 0.21,
         zero_point: 22,
     };
-    const _BIASES: QuantizedTensor2D<i32, 4, 1> = QuantizedTensor2D {
+    const _BIASES: Tensor2D<i32, 4, 1> = Tensor2D {
         buffer: matrix![
             23; 24; 25; 26
         ],
@@ -92,7 +97,7 @@ mod tests {
                 OPTIONS,
                 CONSTANTS
             ),
-            QuantizedTensor2D::new(
+            Tensor2D::new(
                 matrix![
                     112, 103, 95, 87;
                     70, 67, 63, 60

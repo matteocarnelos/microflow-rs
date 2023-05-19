@@ -2,13 +2,14 @@ use core::array;
 
 use libm::{fmaxf, fminf};
 use nalgebra::SMatrix;
+use simba::scalar::SupersetOf;
 
 use crate::activation::FusedActivation;
 use crate::buffer::{Buffer2D, Buffer4D};
-use crate::tensor::{QuantizedTensor2D, QuantizedTensor4D};
+use crate::quantize::Quantized;
+use crate::tensor::{Tensor2D, Tensor4D};
 
 // TODO: Optimize (constants + quantized op)
-// TODO: Implement for `u8`
 
 pub struct DepthwiseConv2DOptions {
     pub fused_activation: FusedActivation,
@@ -22,6 +23,8 @@ pub enum DepthwiseConv2DPadding {
 }
 
 pub fn depthwise_conv_2d<
+    T1,
+    T2,
     const D2: usize,
     const D3: usize,
     const D4: usize,
@@ -31,14 +34,18 @@ pub fn depthwise_conv_2d<
     const D7: usize,
     const D8: usize,
 >(
-    input: QuantizedTensor4D<i8, 1, D2, D3, D4_OR_1, D4_OR_1>,
-    weights: QuantizedTensor4D<i8, 1, D5, D6, D4, D4_OR_1>,
-    biases: QuantizedTensor2D<i32, D4, 1>,
+    input: Tensor4D<T1, 1, D2, D3, D4_OR_1, D4_OR_1>,
+    weights: Tensor4D<T1, 1, D5, D6, D4, D4_OR_1>,
+    biases: Tensor2D<T2, D4, 1>,
     output_scale: [f32; D4_OR_1],
-    output_zero_point: [i8; D4_OR_1],
+    output_zero_point: [T1; D4_OR_1],
     options: DepthwiseConv2DOptions,
-) -> QuantizedTensor4D<i8, 1, D7, D8, D4, D4_OR_1> {
-    QuantizedTensor4D::quantize(
+) -> Tensor4D<T1, 1, D7, D8, D4, D4_OR_1>
+where
+    T1: Quantized,
+    T2: Quantized + SupersetOf<T1>,
+{
+    Tensor4D::quantize(
         convolve(
             input.dequantize(),
             weights.dequantize(),
@@ -116,7 +123,7 @@ mod tests {
     use super::*;
     use nalgebra::matrix;
 
-    const INPUT: QuantizedTensor4D<i8, 1, 2, 3, 2, 2> = QuantizedTensor4D {
+    const INPUT: Tensor4D<i8, 1, 2, 3, 2, 2> = Tensor4D {
         buffer: [matrix![
             [1, 2], [3, 4],  [5, 6];
             [7, 8], [9, 10], [11, 12]
@@ -124,7 +131,7 @@ mod tests {
         scale: [0.13, 0.14],
         zero_point: [15, 16],
     };
-    const WEIGHTS: QuantizedTensor4D<i8, 1, 2, 3, 2, 2> = QuantizedTensor4D {
+    const WEIGHTS: Tensor4D<i8, 1, 2, 3, 2, 2> = Tensor4D {
         buffer: [matrix![
             [17, 18], [19, 20], [21, 22];
             [23, 24], [25, 26], [27, 28]
@@ -132,7 +139,7 @@ mod tests {
         scale: [0.29, 0.30],
         zero_point: [31, 32],
     };
-    const BIASES: QuantizedTensor2D<i32, 2, 1> = QuantizedTensor2D {
+    const BIASES: Tensor2D<i32, 2, 1> = Tensor2D {
         buffer: matrix![
             33;
             34
@@ -150,7 +157,7 @@ mod tests {
 
     #[test]
     fn depthwise_conv_2d_layer() {
-        let output: QuantizedTensor4D<i8, 1, 2, 3, 2, 2> = depthwise_conv_2d(
+        let output: Tensor4D<i8, 1, 2, 3, 2, 2> = depthwise_conv_2d(
             INPUT,
             WEIGHTS,
             BIASES,
@@ -160,7 +167,7 @@ mod tests {
         );
         assert_eq!(
             output,
-            QuantizedTensor4D::new(
+            Tensor4D::new(
                 [matrix![
                     [73, 78], [93, 100], [73, 78];
                     [52, 55], [59, 63], [50, 53]

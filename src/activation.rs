@@ -1,4 +1,4 @@
-use crate::quantize::quantize;
+use crate::quantize::{quantize, Quantized};
 use core::cmp::{max, min};
 use libm::expf;
 
@@ -8,15 +8,15 @@ pub enum FusedActivation {
     RELU6,
 }
 
-pub fn relu(input: i8, zero_point: i8) -> i8 {
+pub fn relu<T: Quantized>(input: T, zero_point: T) -> T {
     max(input, zero_point)
 }
 
-pub fn relu6(input: i8, scale: f32, zero_point: i8) -> i8 {
+pub fn relu6<T: Quantized>(input: T, scale: f32, zero_point: T) -> T {
     min(relu(input, zero_point), quantize(6., scale, zero_point))
 }
 
-pub fn softmax(input: f32, sum: f32, scale: f32, zero_point: i8) -> i8 {
+pub fn softmax<T: Quantized>(input: f32, sum: f32, scale: f32, zero_point: T) -> T {
     quantize(expf(input) / sum, scale, zero_point)
 }
 
