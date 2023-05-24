@@ -1,25 +1,35 @@
 use crate::activation::TokenFusedActivation;
 use crate::quantize::TokenQuantized;
 use crate::tensor::{TokenTensor2D, TokenTensor4D};
-use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Padding, Tensor};
+use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Padding, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use simba::scalar::SupersetOf;
 
-pub(crate) struct DepthwiseConv2D<T1: TokenQuantized, T2: TokenQuantized> {
-    pub(crate) weights: TokenTensor4D<T1>,
-    pub(crate) biases: TokenTensor2D<T2>,
-    pub(crate) output: TokenTensor4D<T1>,
+pub(crate) struct TokenDepthwiseConv2D<T: TokenQuantized> {
+    pub(crate) weights: TokenTensor4D<T>,
+    pub(crate) biases: TokenTensor2D<i32>,
+    pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
     pub(crate) padding: Padding,
     pub(crate) strides: (usize, usize),
 }
 
-impl<T1: TokenQuantized, T2: TokenQuantized> DepthwiseConv2D<T1, T2>
-where
-    T2: SupersetOf<T1>,
-{
+pub(crate) fn parse(
+    operator: Operator,
+    tensors: Vector<ForwardsUOffset<Tensor>>,
+    buffers: Vector<ForwardsUOffset<Buffer>>,
+) -> Box<dyn ToTokens> {
+    let inputs = operator.inputs().unwrap();
+    let input_type = tensors.get(inputs.get(0) as usize).type_();
+    match input_type {
+        TensorType::INT8 => Box::new(TokenDepthwiseConv2D::<i8>::new(operator, tensors, buffers)),
+        TensorType::UINT8 => Box::new(TokenDepthwiseConv2D::<u8>::new(operator, tensors, buffers)),
+        _ => unimplemented!(),
+    }
+}
+
+impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -48,7 +58,7 @@ where
     }
 }
 
-impl<T1: TokenQuantized, T2: TokenQuantized> ToTokens for DepthwiseConv2D<T1, T2> {
+impl<T: TokenQuantized> ToTokens for TokenDepthwiseConv2D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut output_shape = self.output.shape.clone();
         output_shape.push(self.output.scale.len());
@@ -65,7 +75,7 @@ impl<T1: TokenQuantized, T2: TokenQuantized> ToTokens for DepthwiseConv2D<T1, T2
         let (strides_0, strides_1) = &self.strides;
 
         let output = quote! {
-            let output: microflow::tensor::Tensor4D<i8, #(#output_shape),*> = microflow::ops::depthwise_conv_2d(
+            let output: microflow::tensor::Tensor4D<_, #(#output_shape),*> = microflow::ops::depthwise_conv_2d(
                 output.into(),
                 #weights,
                 #biases,
@@ -91,7 +101,7 @@ mod tests {
 
     #[test]
     fn depthwise_conv_2d_to_tokens() {
-        let layer = DepthwiseConv2D {
+        let layer = TokenDepthwiseConv2D {
             weights: TokenTensor4D {
                 buffer: TokenBuffer4D::from(vec![
                     dmatrix![
@@ -129,7 +139,7 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let output: microflow::tensor::Tensor4D<i8, 2usize, 2usize, 3usize, 2usize, 2usize> = microflow::ops::depthwise_conv_2d(
+                let output: microflow::tensor::Tensor4D<_, 2usize, 2usize, 3usize, 2usize, 2usize> = microflow::ops::depthwise_conv_2d(
                     output.into(),
                     #weights,
                     #biases,

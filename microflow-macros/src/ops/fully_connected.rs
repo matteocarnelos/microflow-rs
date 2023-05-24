@@ -10,38 +10,34 @@ use crate::quantize::TokenQuantized;
 use crate::tensor::TokenTensor2D;
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 
-pub(crate) struct FullyConnected<T1: TokenQuantized, T2: TokenQuantized> {
-    pub(crate) weights: TokenTensor2D<T1>,
-    pub(crate) output: TokenTensor2D<T1>,
+pub(crate) struct TokenFullyConnected<T: TokenQuantized> {
+    pub(crate) weights: TokenTensor2D<T>,
+    pub(crate) output: TokenTensor2D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<T2>, T2),
+    pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32),
     pub(crate) capacity: Option<usize>,
 }
 
-pub(crate) fn parse(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>, buffers: Vector<ForwardsUOffset<Buffer>>, capacity: Option<usize>) -> Box<dyn ToTokens> {
+pub(crate) fn parse(
+    operator: Operator,
+    tensors: Vector<ForwardsUOffset<Tensor>>,
+    buffers: Vector<ForwardsUOffset<Buffer>>,
+    capacity: Option<usize>,
+) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
-    let input = match input_type {
-        TensorType::INT8 => TokenTensor2D::<i8>::from_empty_tensor(tensors.get(inputs.get(0) as usize)),
-        TensorType::UINT8 => TokenTensor2D::<u8>::from_empty_tensor(tensors.get(inputs.get(0) as usize))
-    };
-    let weights =
-        TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(1) as usize), buffers);
-    let biases =
-        TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers);
-    let output = TokenTensor2D::from_empty_tensor(
-        tensors.get(operator.outputs().unwrap().get(0) as usize),
-    );
-    let options = operator
-        .builtin_options_as_fully_connected_options()
-        .unwrap();
-    Box::new(FullyConnected::<i8, i32>::new(operator, tensors, buffers, capacity))
+    match input_type {
+        TensorType::INT8 => Box::new(TokenFullyConnected::<i8>::new(
+            operator, tensors, buffers, capacity,
+        )),
+        TensorType::UINT8 => Box::new(TokenFullyConnected::<u8>::new(
+            operator, tensors, buffers, capacity,
+        )),
+        _ => unimplemented!(),
+    }
 }
 
-impl<T1: TokenQuantized, T2: TokenQuantized> FullyConnected<T1, T2>
-where
-    T2: SupersetOf<T1>,
-{
+impl<T: TokenQuantized> TokenFullyConnected<T> {
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -71,29 +67,29 @@ where
     }
 
     fn preprocess(
-        input: &TokenTensor2D<T1>,
-        weights: &TokenTensor2D<T1>,
-        biases: &TokenTensor2D<T2>,
-        output: &TokenTensor2D<T1>,
-    ) -> (TokenBuffer2D<f32>, f32, TokenBuffer2D<T2>, T2) {
+        input: &TokenTensor2D<T>,
+        weights: &TokenTensor2D<T>,
+        biases: &TokenTensor2D<i32>,
+        output: &TokenTensor2D<T>,
+    ) -> (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32) {
         (
             TokenBuffer2D::from(
                 biases.scale / output.scale
-                    * biases.buffer.map::<T2, _>(|e| e - biases.zero_point).cast::<f32>(),
+                    * biases.buffer.add_scalar(-biases.zero_point).cast::<f32>(),
             ),
             input.scale * weights.scale / output.scale,
             TokenBuffer2D::from(DMatrix::from_rows(&[
-                convert_ref::<DMatrix<T1>, DMatrix<T2>>(&weights.buffer).row_sum()
-                    * T2::from_subset(&input.zero_point),
+                convert_ref::<DMatrix<T>, DMatrix<i32>>(&weights.buffer).row_sum()
+                    * i32::from_subset(&input.zero_point),
             ])),
-            T2::from_subset(&input.shape[1])
-                * T2::from_subset(&input.zero_point)
-                * T2::from_subset(&weights.zero_point),
+            input.shape[1] as i32
+                * i32::from_subset(&input.zero_point)
+                * i32::from_subset(&weights.zero_point),
         )
     }
 }
 
-impl<T1: TokenQuantized, T2: TokenQuantized> ToTokens for FullyConnected<T1, T2> {
+impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let weights = &self.weights;
         let output_scale = &self.output.scale;
@@ -201,7 +197,7 @@ mod tests {
             scale: 0.16,
             zero_point: 17,
         };
-        let constants = FullyConnected::preprocess(&input, &weights, &biases, &output);
+        let constants = TokenFullyConnected::preprocess(&input, &weights, &biases, &output);
         assert_eq!(constants.0 .0, Some(dmatrix![-3.5; -2.625; -1.75]));
         assert_eq!(constants.1, 0.5625);
         assert_eq!(constants.2 .0, Some(dmatrix![18, 22, 26]));
@@ -210,7 +206,7 @@ mod tests {
 
     #[test]
     fn fully_connected_to_tokens() {
-        let layer = FullyConnected {
+        let layer = TokenFullyConnected {
             weights: TokenTensor2D {
                 buffer: TokenBuffer2D::from(dmatrix![
                     1i8, 2i8, 3i8;
@@ -259,7 +255,7 @@ mod tests {
 
     #[test]
     fn fully_connected_with_capactiy_to_tokens() {
-        let layer = FullyConnected {
+        let layer = TokenFullyConnected {
             weights: TokenTensor2D {
                 buffer: TokenBuffer2D::from(dmatrix![
                     1i8, 2i8;

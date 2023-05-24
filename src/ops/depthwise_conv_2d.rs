@@ -2,7 +2,6 @@ use core::array;
 
 use libm::{fmaxf, fminf};
 use nalgebra::SMatrix;
-use simba::scalar::SupersetOf;
 
 use crate::activation::FusedActivation;
 use crate::buffer::{Buffer2D, Buffer4D};
@@ -23,8 +22,7 @@ pub enum DepthwiseConv2DPadding {
 }
 
 pub fn depthwise_conv_2d<
-    T1,
-    T2,
+    T: Quantized,
     const D2: usize,
     const D3: usize,
     const D4: usize,
@@ -34,17 +32,13 @@ pub fn depthwise_conv_2d<
     const D7: usize,
     const D8: usize,
 >(
-    input: Tensor4D<T1, 1, D2, D3, D4_OR_1, D4_OR_1>,
-    weights: Tensor4D<T1, 1, D5, D6, D4, D4_OR_1>,
-    biases: Tensor2D<T2, D4, 1>,
+    input: Tensor4D<T, 1, D2, D3, D4_OR_1, D4_OR_1>,
+    weights: Tensor4D<T, 1, D5, D6, D4, D4_OR_1>,
+    biases: Tensor2D<i32, D4, 1>,
     output_scale: [f32; D4_OR_1],
-    output_zero_point: [T1; D4_OR_1],
+    output_zero_point: [T; D4_OR_1],
     options: DepthwiseConv2DOptions,
-) -> Tensor4D<T1, 1, D7, D8, D4, D4_OR_1>
-where
-    T1: Quantized,
-    T2: Quantized + SupersetOf<T1>,
-{
+) -> Tensor4D<T, 1, D7, D8, D4, D4_OR_1> {
     Tensor4D::quantize(
         convolve(
             input.dequantize(),

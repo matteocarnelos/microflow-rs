@@ -6,14 +6,13 @@ use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use simba::scalar::SupersetOf;
 use syn::parse_macro_input;
 
+use crate::tflite_flatbuffers::tflite::TensorType;
+use ops::*;
 use structmeta::StructMeta;
 use syn::{LitInt, LitStr};
-use tensor::{TokenTensor2D, TokenTensor4D};
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
-use crate::quantize::TokenQuantized;
 
 mod activation;
 mod buffer;
@@ -58,26 +57,52 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
 
     let input = tensors.get(subgraph.inputs().unwrap().get(0) as usize);
     let input_shape: Vec<_> = input.shape().unwrap().iter().map(|e| e as usize).collect();
-    let mut input_signature = TokenStream2::new();
-    let mut input_quantization = TokenStream2::new();
-    if input_shape.len() <= 2 {
-        let input: TokenTensor2D<i8> = TokenTensor2D::from_empty_tensor(input);
-        let input_shape = input.shape;
-        let input_scale = input.scale;
-        let input_zero_point = input.zero_point;
-        quote!(microflow::buffer::Buffer2D<f32, #(#input_shape),*>).to_tokens(&mut input_signature);
-        quote!(microflow::tensor::Tensor2D::quantize(input, #input_scale, #input_zero_point))
-            .to_tokens(&mut input_quantization);
-    } else if input_shape.len() == 4 {
-        let input: TokenTensor4D<i8> = TokenTensor4D::from_empty_tensor(input);
-        let input_shape = input.shape;
-        let input_scale = input.scale;
-        let input_zero_point = input.zero_point;
-        quote!(microflow::buffer::Buffer4D<f32, #(#input_shape),*>).to_tokens(&mut input_signature);
-        quote!(microflow::tensor::Tensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*])).to_tokens(&mut input_quantization);
-    } else {
-        unimplemented!()
-    }
+    let input_signature = match input_shape.len() {
+        1 => quote!(microflow::buffer::Buffer2D<f32, 0, #(#input_shape),*>),
+        2 => quote!(microflow::buffer::Buffer2D<f32, #(#input_shape),*>),
+        4 => quote!(microflow::buffer::Buffer4D<f32, #(#input_shape),*>),
+        _ => unimplemented!(),
+    };
+
+    let input_scale: Vec<_> = input
+        .quantization()
+        .unwrap()
+        .scale()
+        .unwrap()
+        .iter()
+        .map(|e| e.to_token_stream())
+        .collect();
+    let input_zero_point: Vec<_> = match input.type_() {
+        TensorType::INT8 => input
+            .quantization()
+            .unwrap()
+            .zero_point()
+            .unwrap()
+            .iter()
+            .map(|e| (e as i8).to_token_stream())
+            .collect(),
+        TensorType::UINT8 => input
+            .quantization()
+            .unwrap()
+            .zero_point()
+            .unwrap()
+            .iter()
+            .map(|e| (e as u8).to_token_stream())
+            .collect(),
+        _ => unimplemented!(),
+    };
+    let input_quantization = match input_shape.len() {
+        1 => {
+            quote!(microflow::tensor::Tensor2D::quantize(input, #(#input_scale)*, #(#input_zero_point)*))
+        }
+        2 => {
+            quote!(microflow::tensor::Tensor2D::quantize(input, #(#input_scale)*, #(#input_zero_point)*))
+        }
+        4 => {
+            quote!(microflow::tensor::Tensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
+        }
+        _ => unimplemented!(),
+    };
 
     let operators = subgraph.operators().unwrap();
     let mut layers = TokenStream2::new();
@@ -89,13 +114,13 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
                 .get(operator.opcode_index() as usize)
                 .deprecated_builtin_code() as i32,
         ) {
-            BuiltinOperator::FULLY_CONNECTED => Box::new(
-                ops::FullyConnected::new(operator, tensors, buffers, capacity)
-            ),
-            BuiltinOperator::DEPTHWISE_CONV_2D => Box::new(
-                ops::DepthwiseConv2D::new(operator, tensors, buffers)
-            ),
-            BuiltinOperator::SOFTMAX => Box::new(ops::Softmax::new(operator, tensors)),
+            BuiltinOperator::FULLY_CONNECTED => {
+                fully_connected::parse(operator, tensors, buffers, capacity)
+            }
+            BuiltinOperator::DEPTHWISE_CONV_2D => {
+                depthwise_conv_2d::parse(operator, tensors, buffers)
+            }
+            BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
         layer.to_tokens(&mut layers)
@@ -103,20 +128,12 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
     let output_shape: Vec<_> = output.shape().unwrap().iter().map(|e| e as usize).collect();
-    let mut output_signature = TokenStream2::new();
-    if output_shape.len() <= 2 {
-        let output: TokenTensor4D<i8> = TokenTensor4D::from_empty_tensor(output);
-        let output_shape = output.shape;
-        quote!(microflow::buffer::Buffer2D<f32, #(#output_shape),*>)
-            .to_tokens(&mut output_signature);
-    } else if output_shape.len() == 4 {
-        let output: TokenTensor4D<i8> = TokenTensor4D::from_empty_tensor(output);
-        let output_shape = output.shape;
-        quote!(microflow::buffer::Buffer2D<f32, #(#output_shape),*>)
-            .to_tokens(&mut output_signature);
-    } else {
-        unimplemented!()
-    }
+    let output_signature = match output_shape.len() {
+        1 => quote!(microflow::buffer::Buffer2D<f32, 0, #(#output_shape),*>),
+        2 => quote!(microflow::buffer::Buffer2D<f32, #(#output_shape),*>),
+        4 => quote!(microflow::buffer::Buffer4D<f32, #(#output_shape),*>),
+        _ => unimplemented!(),
+    };
 
     let tokens = quote! {
         struct Model;

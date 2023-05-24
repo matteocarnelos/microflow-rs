@@ -1,35 +1,10 @@
 use byterepr::ByteReprNum;
 use nalgebra::Scalar;
 use quote::ToTokens;
-use simba::scalar::{ClosedAdd, ClosedMul, ClosedSub, SubsetOf, SupersetOf};
+use simba::scalar::SubsetOf;
 
-use num_traits::Zero;
-
-pub trait TokenQuantized:
-    Scalar
-    + Zero
-    + ClosedAdd
-    + ClosedSub
-    + ClosedMul
-    + ByteReprNum
-    + ToTokens
-    + SubsetOf<i64>
-    + SubsetOf<f32>
-    + SupersetOf<usize>
+pub(crate) trait TokenQuantized:
+    Scalar + ByteReprNum + ToTokens + SubsetOf<i32> + SubsetOf<i64>
 {
 }
-
-impl<
-        T: Scalar
-            + Zero
-            + ClosedAdd
-            + ClosedSub
-            + ClosedMul
-            + ByteReprNum
-            + ToTokens
-            + SubsetOf<i64>
-            + SubsetOf<f32>
-            + SupersetOf<usize>,
-    > TokenQuantized for T
-{
-}
+impl<T: Scalar + ByteReprNum + ToTokens + SubsetOf<i32> + SubsetOf<i64>> TokenQuantized for T {}

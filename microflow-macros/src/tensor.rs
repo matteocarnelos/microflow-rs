@@ -28,9 +28,13 @@ pub(crate) struct TokenTensor4D<T: TokenQuantized> {
 
 impl<T: TokenQuantized> TokenTensor2D<T> {
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
+        let mut shape: Vec<_> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
+        if shape.len() == 1 {
+            shape.insert(0, 1);
+        }
         Self {
             buffer: TokenBuffer2D::new(),
-            shape: tensor.shape().unwrap().iter().map(|e| e as usize).collect(),
+            shape,
             scale: tensor.quantization().unwrap().scale().unwrap().get(0),
             zero_point: i64::to_subset_unchecked(
                 &tensor.quantization().unwrap().zero_point().unwrap().get(0),
@@ -39,13 +43,10 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
     }
 
     pub fn from_buffered_tensor(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
-        let mut shape: Vec<_> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
-        if shape.len() == 1 {
-            shape.insert(0, 1);
-        }
+        let mut token_tensor = Self::from_empty_tensor(tensor);
         let matrix = DMatrix::from_iterator(
-            shape[1],
-            shape[0],
+            token_tensor.shape[1],
+            token_tensor.shape[0],
             buffers
                 .get(tensor.buffer() as usize)
                 .data()
@@ -54,14 +55,8 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
                 .chunks_exact(size_of::<T>())
                 .map(|e| T::from_le_bytes(e)),
         );
-        Self {
-            buffer: TokenBuffer2D::from(matrix),
-            shape,
-            scale: tensor.quantization().unwrap().scale().unwrap().get(0),
-            zero_point: i64::to_subset_unchecked(
-                &tensor.quantization().unwrap().zero_point().unwrap().get(0),
-            ),
-        }
+        token_tensor.buffer = TokenBuffer2D::from(matrix);
+        token_tensor
     }
 }
 

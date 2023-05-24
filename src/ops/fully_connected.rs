@@ -10,25 +10,21 @@ pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
 
-pub fn fully_connected<T1, T2, const D1: usize, const D2: usize, const D3: usize>(
-    input: &Tensor2D<T1, D1, D2>,
-    weights: Tensor2D<T1, D2, D3>,
+pub fn fully_connected<T: Quantized, const D1: usize, const D2: usize, const D3: usize>(
+    input: &Tensor2D<T, D1, D2>,
+    weights: Tensor2D<T, D2, D3>,
     output_scale: f32,
-    output_zero_point: T1,
+    output_zero_point: T,
     options: FullyConnectedOptions,
-    constants: (Buffer2D<f32, D3, 1>, f32, Buffer2D<T2, 1, D3>, T2),
-) -> Tensor2D<T1, D1, D3>
-where
-    T1: Quantized,
-    T2: Quantized + SupersetOf<T1>,
-{
+    constants: (Buffer2D<f32, D3, 1>, f32, Buffer2D<i32, 1, D3>, i32),
+) -> Tensor2D<T, D1, D3> {
     let x = (
-        input.buffer.cast::<T2>() * weights.buffer.cast::<T2>(),
-        input.buffer.cast::<T2>().column_sum() * T2::from_subset(&weights.zero_point),
+        input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
+        input.buffer.cast::<i32>().column_sum() * i32::from_subset(&weights.zero_point),
     );
     Tensor2D::new(
         Buffer2D::from_fn(|i, j| {
-            let y = T1::from_superset_unchecked(&roundf(
+            let y = T::from_superset_unchecked(&roundf(
                 f32::from_subset(&output_zero_point)
                     + constants.0[j]
                     + constants.1

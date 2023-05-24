@@ -1,12 +1,25 @@
 use crate::quantize::TokenQuantized;
 use crate::tensor::TokenTensor2D;
-use crate::tflite_flatbuffers::tflite::{Operator, Tensor};
+use crate::tflite_flatbuffers::tflite::{Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 pub(crate) struct Softmax<T: TokenQuantized> {
     pub(crate) output: TokenTensor2D<T>,
+}
+
+pub(crate) fn parse(
+    operator: Operator,
+    tensors: Vector<ForwardsUOffset<Tensor>>,
+) -> Box<dyn ToTokens> {
+    let inputs = operator.inputs().unwrap();
+    let input_type = tensors.get(inputs.get(0) as usize).type_();
+    match input_type {
+        TensorType::INT8 => Box::new(Softmax::<i8>::new(operator, tensors)),
+        TensorType::UINT8 => Box::new(Softmax::<u8>::new(operator, tensors)),
+        _ => unimplemented!(),
+    }
 }
 
 impl<T: TokenQuantized> Softmax<T> {
