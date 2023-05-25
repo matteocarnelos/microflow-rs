@@ -42,12 +42,12 @@ pub fn depthwise_conv_2d<
     let input = input.dequantize();
     let weights = weights.dequantize();
     let biases = biases.dequantize();
-    let shift = ((WEIGHTS_ROWS - 1) / 2, (WEIGHTS_COLS - 1) / 2);
     let output = [SMatrix::from_fn(|i, j| {
         array::from_fn(|c| {
             let view: SMatrix<f32, WEIGHTS_ROWS, WEIGHTS_COLS> =
                 SMatrix::from_fn(|m, n| match options.padding {
                     DepthwiseConv2DPadding::SAME => {
+                        let shift = ((WEIGHTS_ROWS - 1) / 2, (WEIGHTS_COLS - 1) / 2);
                         let index = (
                             if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
                                 x
@@ -71,7 +71,7 @@ pub fn depthwise_conv_2d<
                         x.get(c).copied().unwrap_or(x[0])
                     }
                 });
-            let y = view.dot(&weights[0].map(|a| a[c])) + biases[c];
+            let y = view.zip_fold(&weights[0], 0f32, |acc, e, a| acc + e * a[c]) + biases[c];
             match options.fused_activation {
                 FusedActivation::NONE => y,
                 FusedActivation::RELU => fmaxf(y, 0.),
