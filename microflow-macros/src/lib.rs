@@ -97,10 +97,10 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     };
     let input_quantization = match input_shape.len() {
         1 => {
-            quote!(microflow::tensor::Tensor2D::quantize(input, #(#input_scale)*, #(#input_zero_point)*))
+            quote!(microflow::tensor::Tensor2D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
         }
         2 => {
-            quote!(microflow::tensor::Tensor2D::quantize(input, #(#input_scale)*, #(#input_zero_point)*))
+            quote!(microflow::tensor::Tensor2D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
         }
         4 => {
             quote!(microflow::tensor::Tensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))

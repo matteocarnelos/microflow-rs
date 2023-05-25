@@ -10,30 +10,40 @@ pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
 
-pub fn fully_connected<T: Quantized, const D1: usize, const D2: usize, const D3: usize>(
-    input: &Tensor2D<T, D1, D2>,
-    weights: Tensor2D<T, D2, D3>,
-    output_scale: f32,
-    output_zero_point: T,
+pub fn fully_connected<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const WEIGHTS_COLS: usize,
+>(
+    input: &Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+    weights: Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
     options: FullyConnectedOptions,
-    constants: (Buffer2D<f32, D3, 1>, f32, Buffer2D<i32, 1, D3>, i32),
-) -> Tensor2D<T, D1, D3> {
+    constants: (
+        Buffer2D<f32, WEIGHTS_COLS, 1>,
+        f32,
+        Buffer2D<i32, 1, WEIGHTS_COLS>,
+        i32,
+    ),
+) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
     let x = (
         input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
-        input.buffer.cast::<i32>().column_sum() * i32::from_subset(&weights.zero_point),
+        input.buffer.cast::<i32>().column_sum() * i32::from_subset(&weights.zero_point[0]),
     );
     Tensor2D::new(
         Buffer2D::from_fn(|i, j| {
             let y = T::from_superset_unchecked(&roundf(
-                f32::from_subset(&output_zero_point)
+                f32::from_subset(&output_zero_point[0])
                     + constants.0[j]
                     + constants.1
                         * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
             ));
             match options.fused_activation {
                 FusedActivation::NONE => y,
-                FusedActivation::RELU => relu(y, output_zero_point),
-                FusedActivation::RELU6 => relu6(y, output_scale, output_zero_point),
+                FusedActivation::RELU => relu(y, output_zero_point[0]),
+                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
             }
         }),
         output_scale,
@@ -46,32 +56,32 @@ mod tests {
     use super::*;
     use nalgebra::matrix;
 
-    const INPUT: Tensor2D<i8, 2, 3> = Tensor2D {
+    const INPUT: Tensor2D<i8, 2, 3, 1> = Tensor2D {
         buffer: matrix![
             1, 2, 3;
             4, 5, 6
         ],
-        scale: 0.7,
-        zero_point: 8,
+        scale: [0.7],
+        zero_point: [8],
     };
-    const WEIGHTS: Tensor2D<i8, 3, 4> = Tensor2D {
+    const WEIGHTS: Tensor2D<i8, 3, 4, 1> = Tensor2D {
         buffer: matrix![
             9, 10, 11, 12;
             13, 14, 15, 16;
             17, 18, 19, 20
         ],
-        scale: 0.21,
-        zero_point: 22,
+        scale: [0.21],
+        zero_point: [22],
     };
-    const _BIASES: Tensor2D<i32, 4, 1> = Tensor2D {
+    const _BIASES: Tensor2D<i32, 4, 1, 1> = Tensor2D {
         buffer: matrix![
             23; 24; 25; 26
         ],
-        scale: 0.27,
-        zero_point: 28,
+        scale: [0.27],
+        zero_point: [28],
     };
-    const OUTPUT_SCALE: f32 = 0.29;
-    const OUTPUT_ZERO_POINT: i8 = 30;
+    const OUTPUT_SCALE: [f32; 1] = [0.29];
+    const OUTPUT_ZERO_POINT: [i8; 1] = [30];
     const OPTIONS: FullyConnectedOptions = FullyConnectedOptions {
         fused_activation: FusedActivation::RELU,
     };
@@ -98,8 +108,8 @@ mod tests {
                     112, 103, 95, 87;
                     70, 67, 63, 60
                 ],
-                0.29,
-                30
+                [0.29],
+                [30]
             )
         )
     }

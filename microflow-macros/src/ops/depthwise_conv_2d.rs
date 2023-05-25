@@ -119,8 +119,8 @@ mod tests {
             biases: TokenTensor2D {
                 buffer: TokenBuffer2D::from(dmatrix![29i32; 30i32]),
                 shape: vec![2, 1],
-                scale: 0.31,
-                zero_point: 32,
+                scale: vec![0.31],
+                zero_point: vec![32],
             },
             output: TokenTensor4D {
                 buffer: TokenBuffer4D::new(),

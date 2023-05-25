@@ -37,7 +37,7 @@ impl<T: TokenQuantized> ToTokens for Softmax<T> {
         let output_zero_point = &self.output.zero_point;
 
         let output = quote! {
-            let output = microflow::ops::softmax(output.into(), #output_scale, #output_zero_point);
+            let output = microflow::ops::softmax(output.into(), [#(#output_scale),*], [#(#output_zero_point),*]);
         };
         output.to_tokens(tokens);
     }
@@ -54,8 +54,8 @@ mod tests {
             output: TokenTensor2D {
                 buffer: TokenBuffer2D::<i8>::new(),
                 shape: vec![1, 2],
-                scale: 0.3,
-                zero_point: 4,
+                scale: vec![0.3],
+                zero_point: vec![4],
             },
         };
         assert_eq!(
@@ -63,8 +63,8 @@ mod tests {
             quote! {
                 let output = microflow::ops::softmax(
                     output.into(),
-                    0.3f32,
-                    4i8
+                    [0.3f32],
+                    [4i8]
                 );
             }
             .to_string()

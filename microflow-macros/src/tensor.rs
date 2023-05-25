@@ -14,8 +14,8 @@ use crate::tflite_flatbuffers::tflite::{Buffer, Tensor};
 pub(crate) struct TokenTensor2D<T: TokenQuantized> {
     pub(crate) buffer: TokenBuffer2D<T>,
     pub(crate) shape: Vec<usize>,
-    pub(crate) scale: f32,
-    pub(crate) zero_point: T,
+    pub(crate) scale: Vec<f32>,
+    pub(crate) zero_point: Vec<T>,
 }
 
 #[derive(Debug)]
@@ -35,10 +35,21 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         Self {
             buffer: TokenBuffer2D::new(),
             shape,
-            scale: tensor.quantization().unwrap().scale().unwrap().get(0),
-            zero_point: i64::to_subset_unchecked(
-                &tensor.quantization().unwrap().zero_point().unwrap().get(0),
-            ),
+            scale: tensor
+                .quantization()
+                .unwrap()
+                .scale()
+                .unwrap()
+                .iter()
+                .collect(),
+            zero_point: tensor
+                .quantization()
+                .unwrap()
+                .zero_point()
+                .unwrap()
+                .iter()
+                .map(|e| i64::to_subset_unchecked(&e))
+                .collect(),
         }
     }
 
@@ -68,8 +79,8 @@ impl<T: TokenQuantized> ToTokens for TokenTensor2D<T> {
         let output = quote! {
             microflow::tensor::Tensor2D::new(
                 #buffer,
-                #scale,
-                #zero_point
+                [#(#scale),*],
+                [#(#zero_point),*]
             )
         };
         output.to_tokens(tokens);
@@ -156,8 +167,8 @@ mod tests {
                 4i8, 5i8, 6i8
             ]),
             shape: vec![2, 3],
-            scale: 0.7,
-            zero_point: 8,
+            scale: vec![0.7],
+            zero_point: vec![8],
         };
         let buffer = &tensor.buffer;
         assert_eq!(
@@ -165,8 +176,8 @@ mod tests {
             quote! {
                 microflow::tensor::Tensor2D::new(
                     #buffer,
-                    0.7f32,
-                    8i8
+                    [0.7f32],
+                    [8i8]
                 )
             }
             .to_string()
