@@ -99,7 +99,6 @@ impl<T: TokenQuantized> TokenTensor4D<T> {
         }
     }
 
-    // TODO: Check if to transpose matrix
     pub fn from_buffered_tensor(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
         let mut t = Self::from_empty_tensor(tensor);
         let len = t.shape.iter().product::<usize>() * size_of::<T>();

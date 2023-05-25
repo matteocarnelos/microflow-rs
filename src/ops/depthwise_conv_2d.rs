@@ -54,7 +54,6 @@ pub fn depthwise_conv_2d<
 }
 
 pub fn convolve<
-    const D1: usize,
     const D2: usize,
     const D3: usize,
     const D4: usize,
@@ -64,58 +63,56 @@ pub fn convolve<
     const D7: usize,
     const D8: usize,
 >(
-    input: Buffer4D<f32, D1, D2, D3, D4_OR_1>,
-    weights: Buffer4D<f32, D1, D5, D6, D4>,
+    input: Buffer4D<f32, 1, D2, D3, D4_OR_1>,
+    weights: Buffer4D<f32, 1, D5, D6, D4>,
     biases: Buffer2D<f32, D4, 1>,
     fused_activation: FusedActivation,
     padding: DepthwiseConv2DPadding,
     strides: (usize, usize),
-) -> Buffer4D<f32, D1, D7, D8, D4> {
+) -> Buffer4D<f32, 1, D7, D8, D4> {
     let shift = ((D5 - 1) / 2, (D6 - 1) / 2);
-    array::from_fn(|b| {
-        SMatrix::from_fn(|i, j| {
-            array::from_fn(|c| {
-                let view: SMatrix<f32, D5, D6> = SMatrix::from_fn(|m, n| match padding {
-                    DepthwiseConv2DPadding::SAME => {
-                        let index = (
-                            if let Some(x) = (strides.0 * i + m).checked_sub(shift.0) {
-                                x
-                            } else {
-                                return 0.;
-                            },
-                            if let Some(x) = (strides.1 * j + n).checked_sub(shift.1) {
-                                x
-                            } else {
-                                return 0.;
-                            },
-                        );
-                        if let Some(x) = input[b].get(index) {
-                            x.get(c).copied().unwrap_or(x[0])
+    [SMatrix::from_fn(|i, j| {
+        array::from_fn(|c| {
+            let view: SMatrix<f32, D5, D6> = SMatrix::from_fn(|m, n| match padding {
+                DepthwiseConv2DPadding::SAME => {
+                    let index = (
+                        if let Some(x) = (strides.0 * i + m).checked_sub(shift.0) {
+                            x
                         } else {
-                            0.
-                        }
-                    }
-                    DepthwiseConv2DPadding::VALID => {
-                        // TODO: Fallback to input[0]
-                        let x = input[b][(strides.0 * i + m, strides.1 * j + n)];
+                            return 0.;
+                        },
+                        if let Some(x) = (strides.1 * j + n).checked_sub(shift.1) {
+                            x
+                        } else {
+                            return 0.;
+                        },
+                    );
+                    if let Some(x) = input[0].get(index) {
                         x.get(c).copied().unwrap_or(x[0])
+                    } else {
+                        0.
                     }
-                });
-                let y = view.dot(&weights[b].map(|a| a[c])) + biases[c];
-                match fused_activation {
-                    FusedActivation::NONE => y,
-                    FusedActivation::RELU => fmaxf(y, 0.),
-                    FusedActivation::RELU6 => fminf(fmaxf(y, 0.), 6.),
                 }
-            })
+                DepthwiseConv2DPadding::VALID => {
+                    let x = input[0][(strides.0 * i + m, strides.1 * j + n)];
+                    x.get(c).copied().unwrap_or(x[0])
+                }
+            });
+            let y = view.dot(&weights[0].map(|a| a[c])) + biases[c];
+            match fused_activation {
+                FusedActivation::NONE => y,
+                FusedActivation::RELU => fmaxf(y, 0.),
+                FusedActivation::RELU6 => fminf(fmaxf(y, 0.), 6.),
+            }
         })
-    })
+    })]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::matrix;
+
+    use super::*;
 
     const INPUT: Tensor4D<i8, 1, 2, 3, 2, 2> = Tensor4D {
         buffer: [matrix![

@@ -52,7 +52,6 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
             output,
             fused_activation: TokenFusedActivation(options.fused_activation_function()),
             padding: options.padding(),
-            // TODO: Check if swap is needed
             strides: (options.stride_h() as usize, options.stride_w() as usize),
         }
     }

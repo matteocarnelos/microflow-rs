@@ -60,7 +60,6 @@ impl<
 {
     fn from(tensor: Tensor4D<T, D1, D2, D3, D4, D4_OR_1>) -> Self {
         Self::new(
-            // TODO: Optimize conversion by removing the transpose
             Buffer2D::from_row_iterator(
                 tensor
                     .buffer
