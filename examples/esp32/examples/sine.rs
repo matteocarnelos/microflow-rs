@@ -7,9 +7,9 @@ use esp_println::println;
 use hal::{clock::ClockControl, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
 use libm::sinf;
 use microflow::model;
-use nalgebra::vector;
+use nalgebra::matrix;
 
-#[model("../models/sine.tflite")]
+#[model("../../models/sine.tflite")]
 struct Model;
 
 #[entry]
@@ -29,7 +29,7 @@ fn main() -> ! {
     wdt1.disable();
 
     let x = 1.5;
-    let y_predicted = Model::predict(vector![x])[0];
+    let y_predicted = Model::predict(matrix![x])[0];
     let y_exact = sinf(x);
     println!(" ");
     println!("Predicted sin({}): {}", x, y_predicted);

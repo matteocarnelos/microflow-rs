@@ -6,7 +6,7 @@ use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use syn::parse_macro_input;
+use syn::{ItemStruct, parse_macro_input};
 
 use crate::tflite_flatbuffers::tflite::TensorType;
 use ops::*;
@@ -33,8 +33,10 @@ struct Args {
 
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(input as Args);
+pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as Args);
+    let item = parse_macro_input!(item as ItemStruct);
+
     let buf = fs::read(args.path.value()).unwrap_or_else(|_| {
         abort_call_site!(
             "couldn't find '{}', please provide a valid path",
@@ -50,6 +52,8 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
             abort_call_site!("invalid value for parameter `capacity`: {}", x.to_string());
         })
     });
+
+    let ident = item.ident;
 
     let subgraph = model.subgraphs().unwrap().get(0);
     let tensors = subgraph.tensors().unwrap();
@@ -136,8 +140,8 @@ pub fn model(input: TokenStream, _item: TokenStream) -> TokenStream {
     };
 
     let tokens = quote! {
-        struct Model;
-        impl Model {
+        struct #ident;
+        impl #ident {
             pub fn predict(input: #input_signature) -> #output_signature {
                 let output = #input_quantization;
                 #layers

@@ -4,18 +4,18 @@
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hprintln};
 use libm::sinf;
-use nalgebra::vector;
+use nalgebra::matrix;
 
 use microflow::model;
 use panic_halt as _;
 
-#[model("../models/sine.tflite")]
+#[model("../../models/sine.tflite")]
 struct Model;
 
 #[entry]
 fn main() -> ! {
     let x = 1.5;
-    let y_predicted = Model::predict(vector![x])[0];
+    let y_predicted = Model::predict(matrix![x])[0];
     let y_exact = sinf(x);
     hprintln!();
     hprintln!("Predicted sin({}): {}", x, y_predicted);

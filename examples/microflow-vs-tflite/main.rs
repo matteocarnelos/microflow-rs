@@ -1,7 +1,7 @@
 use microflow::model;
 use nalgebra::matrix;
 
-#[model("examples/models/sine.tflite")]
+#[model("models/sine.tflite")]
 struct Model;
 
 fn main() {
