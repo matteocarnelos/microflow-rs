@@ -6,7 +6,7 @@ use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use syn::{ItemStruct, parse_macro_input};
+use syn::{parse_macro_input, ItemStruct};
 
 use crate::tflite_flatbuffers::tflite::TensorType;
 use ops::*;

@@ -1,5 +1,5 @@
-use nalgebra::{matrix, SMatrix};
 use microflow_macros::model;
+use nalgebra::{matrix, SMatrix};
 
 #[model("models/sine.tflite")]
 struct Sine;
