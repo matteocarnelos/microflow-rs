@@ -85,15 +85,9 @@ impl<
 {
     fn from(tensor: Tensor4D<T, BATCHES, ROWS, COLS, CHANS, QUANTS>) -> Self {
         Self::new(
-            Buffer2D::from_row_iterator(
-                tensor
-                    .buffer
-                    .map(|m| m.transpose())
-                    .iter()
-                    .flatten()
-                    .flatten()
-                    .copied(),
-            ),
+            Buffer2D::from_fn(|i, j| {
+                tensor.buffer[i][(j / (CHANS * COLS), j / CHANS % COLS)][j % CHANS]
+            }),
             tensor.scale,
             tensor.zero_point,
         )
