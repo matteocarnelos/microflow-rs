@@ -78,3 +78,70 @@ pub fn conv_2d<
     })];
     Tensor4D::quantize(output, output_scale, output_zero_point)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::matrix;
+
+    const INPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
+        buffer: [matrix![
+            [1, 2], [3, 4], [5, 6];
+            [7, 8], [9, 10], [11, 12]
+        ]],
+        scale: [0.13],
+        zero_point: [14],
+    };
+    const FILTERS: Tensor4D<i8, 2, 2, 3, 2, 2> = Tensor4D {
+        buffer: [
+            matrix![
+                [15, 16], [17, 18], [19, 20];
+                [21, 22], [23, 24], [25, 26]
+            ],
+            matrix![
+                [27, 28], [29, 30], [31, 32];
+                [33, 34], [35, 36], [37, 38]
+            ],
+        ],
+        scale: [0.39, 0.40],
+        zero_point: [41, 42],
+    };
+    const BIASES: Tensor2D<i32, 2, 1, 2> = Tensor2D {
+        buffer: matrix![
+            43;
+            44
+        ],
+        scale: [0.45, 0.46],
+        zero_point: [47, 48],
+    };
+    const OUTPUT_SCALE: [f32; 1] = [0.49];
+    const OUTPUT_ZERO_POINT: [i8; 1] = [50];
+    const OPTIONS: Conv2DOptions = Conv2DOptions {
+        fused_activation: FusedActivation::NONE,
+        padding: Conv2DPadding::SAME,
+        strides: (1, 1),
+    };
+
+    #[test]
+    fn conv_2d_layer() {
+        let output: Tensor4D<i8, 1, 2, 3, 2, 1> = conv_2d(
+            INPUT,
+            FILTERS,
+            BIASES,
+            OUTPUT_SCALE,
+            OUTPUT_ZERO_POINT,
+            OPTIONS,
+        );
+        assert_eq!(
+            output,
+            Tensor4D::new(
+                [matrix![
+                    [127, 112], [127, 127], [127, 109];
+                    [100, 72],  [116, 82],  [83, 66]
+                ]],
+                [0.49],
+                [50]
+            )
+        );
+    }
+}
