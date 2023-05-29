@@ -124,6 +124,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             BuiltinOperator::DEPTHWISE_CONV_2D => {
                 depthwise_conv_2d::parse(operator, tensors, buffers)
             }
+            BuiltinOperator::CONV_2D => conv_2d::parse(operator, tensors, buffers),
             BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };

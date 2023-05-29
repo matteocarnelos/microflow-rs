@@ -95,8 +95,8 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
 impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let weights = &self.weights;
-        let output_scale = &self.output.scale[0];
-        let output_zero_point = &self.output.zero_point[0];
+        let output_scale = self.output.scale[0];
+        let output_zero_point = self.output.zero_point[0];
         let fused_activation = &self.fused_activation;
         let (constant_0, constant_1, constant_2, constant_3) = &self.constants;
 
@@ -134,7 +134,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
                                     [#output_scale],
                                     [#output_zero_point],
                                     microflow::ops::FullyConnectedOptions {
-                                        fused_activation: #fused_activation
+                                        fused_activation: #fused_activation,
                                     },
                                     (#constant_0_vec, #constant_1, #constant_2_vec, #constant_3)
                                 ).buffer
@@ -153,7 +153,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
                     [#output_scale],
                     [#output_zero_point],
                     microflow::ops::FullyConnectedOptions {
-                        fused_activation: #fused_activation
+                        fused_activation: #fused_activation,
                     },
                     (#constant_0, #constant_1, #constant_2, #constant_3)
                 );
@@ -247,7 +247,7 @@ mod tests {
                     [0.9f32],
                     [10i8],
                     microflow::ops::FullyConnectedOptions {
-                        fused_activation: #fused_activation
+                        fused_activation: #fused_activation,
                     },
                     (#constants_0, 13f32, #constants_2, 16i32)
                 );
@@ -312,7 +312,7 @@ mod tests {
                                 [0.7f32],
                                 [8i8],
                                 microflow::ops::FullyConnectedOptions {
-                                    fused_activation: #fused_activation
+                                    fused_activation: #fused_activation,
                                 },
                                 (#constants_0_0, 11f32, #constants_2_0, 14i32)
                             ).buffer,
@@ -322,7 +322,7 @@ mod tests {
                                 [0.7f32],
                                 [8i8],
                                 microflow::ops::FullyConnectedOptions {
-                                    fused_activation: #fused_activation
+                                    fused_activation: #fused_activation,
                                 },
                                 (#constants_0_1, 11f32, #constants_2_1, 14i32)
                             ).buffer
