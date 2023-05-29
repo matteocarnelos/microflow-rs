@@ -91,6 +91,14 @@ mod tests {
         matrix![312, 336, 360, 384],
         528,
     );
+    const OUTPUT: Tensor2D<i8, 2, 4, 1> = Tensor2D {
+        buffer: matrix![
+            112, 103, 95, 87;
+            70, 67, 63, 60
+        ],
+        scale: [0.29],
+        zero_point: [30],
+    };
 
     #[test]
     fn fully_connected_layer() {
@@ -103,14 +111,7 @@ mod tests {
                 OPTIONS,
                 CONSTANTS
             ),
-            Tensor2D::new(
-                matrix![
-                    112, 103, 95, 87;
-                    70, 67, 63, 60
-                ],
-                [0.29],
-                [30]
-            )
+            OUTPUT
         )
     }
 }

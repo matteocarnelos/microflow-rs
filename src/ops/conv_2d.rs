@@ -5,6 +5,8 @@ use core::array;
 use libm::{fmaxf, fminf};
 use nalgebra::SMatrix;
 
+// TODO: Optimize (constants + quantized op)
+
 pub struct Conv2DOptions {
     pub fused_activation: FusedActivation,
     pub padding: Conv2DPadding,
@@ -121,27 +123,27 @@ mod tests {
         padding: Conv2DPadding::SAME,
         strides: (1, 1),
     };
+    const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
+        buffer: [matrix![
+            [127, 112], [127, 127], [127, 109];
+            [100, 72],  [116, 82],  [83, 66]
+        ]],
+        scale: [0.49],
+        zero_point: [50],
+    };
 
     #[test]
     fn conv_2d_layer() {
-        let output: Tensor4D<i8, 1, 2, 3, 2, 1> = conv_2d(
-            INPUT,
-            FILTERS,
-            BIASES,
-            OUTPUT_SCALE,
-            OUTPUT_ZERO_POINT,
-            OPTIONS,
-        );
         assert_eq!(
-            output,
-            Tensor4D::new(
-                [matrix![
-                    [127, 112], [127, 127], [127, 109];
-                    [100, 72],  [116, 82],  [83, 66]
-                ]],
-                [0.49],
-                [50]
-            )
+            conv_2d(
+                INPUT,
+                FILTERS,
+                BIASES,
+                OUTPUT_SCALE,
+                OUTPUT_ZERO_POINT,
+                OPTIONS
+            ),
+            OUTPUT
         );
     }
 }
