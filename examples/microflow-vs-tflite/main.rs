@@ -2,7 +2,7 @@ use microflow::model;
 use nalgebra::matrix;
 
 #[model("models/sine.tflite")]
-struct Model;
+struct Sine;
 
 fn main() {
     let mut rdr = csv::Reader::from_path("examples/microflow-vs-tflite/tflite.csv").unwrap();
@@ -15,7 +15,7 @@ fn main() {
         let x = record.get(0).unwrap();
         wtr.write_record([
             x,
-            Model::predict(matrix![x.parse::<f32>().unwrap()])[0]
+            Sine::predict(matrix![x.parse::<f32>().unwrap()])[0]
                 .to_string()
                 .as_str(),
         ])

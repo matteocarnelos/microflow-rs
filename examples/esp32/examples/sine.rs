@@ -10,7 +10,7 @@ use microflow::model;
 use nalgebra::matrix;
 
 #[model("../../models/sine.tflite")]
-struct Model;
+struct Sine;
 
 #[entry]
 fn main() -> ! {
@@ -29,7 +29,7 @@ fn main() -> ! {
     wdt1.disable();
 
     let x = 1.5;
-    let y_predicted = Model::predict(matrix![x])[0];
+    let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     println!(" ");
     println!("Predicted sin({}): {}", x, y_predicted);

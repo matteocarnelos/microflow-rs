@@ -11,7 +11,7 @@ mod app {
     use rtt_target::{rprintln, rtt_init_print};
 
     #[model("../../models/sine.tflite")]
-    struct Model;
+    struct Sine;
 
     #[shared]
     struct Shared {}
@@ -25,7 +25,7 @@ mod app {
         rtt_init_print!();
 
         let x = 1.5;
-        let y_predicted = Model::predict(matrix![x])[0];
+        let y_predicted = Sine::predict(matrix![x])[0];
         let y_exact = sinf(x);
         rprintln!("Predicted sin({}): {}", x, y_predicted);
         rprintln!("Exact sin({}): {}", x, y_exact);

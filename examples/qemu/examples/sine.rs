@@ -10,12 +10,12 @@ use microflow::model;
 use panic_halt as _;
 
 #[model("../../models/sine.tflite")]
-struct Model;
+struct Sine;
 
 #[entry]
 fn main() -> ! {
     let x = 1.5;
-    let y_predicted = Model::predict(matrix![x])[0];
+    let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     hprintln!();
     hprintln!("Predicted sin({}): {}", x, y_predicted);
