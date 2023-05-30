@@ -7,4 +7,4 @@ pub type Buffer4D<
     const ROWS: usize,
     const COLS: usize,
     const CHANNELS: usize,
-> = [SMatrix<[T; CHANNELS], ROWS, COLS>; BATCHES];
+> = [Buffer2D<[T; CHANNELS], ROWS, COLS>; BATCHES];

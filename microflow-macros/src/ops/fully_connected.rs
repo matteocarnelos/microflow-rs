@@ -98,7 +98,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
         let output_scale = self.output.scale[0];
         let output_zero_point = self.output.zero_point[0];
         let fused_activation = &self.fused_activation;
-        let (constant_0, constant_1, constant_2, constant_3) = &self.constants;
+        let (constants_0, constants_1, constants_2, constants_3) = &self.constants;
 
         let output = if self.capacity.is_some() && self.capacity.unwrap() < weights.buffer.nrows() {
             let weights_vec: Vec<_> = weights
@@ -115,11 +115,11 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
                     zero_point: weights.zero_point.clone(),
                 })
                 .collect();
-            let constant_0_vec: Vec<_> = constant_0
+            let constant_0_vec: Vec<_> = constants_0
                 .iter()
                 .map(|c| TokenBuffer2D::from(dmatrix![*c]))
                 .collect();
-            let constant_2_vec: Vec<_> = constant_2
+            let constant_2_vec: Vec<_> = constants_2
                 .iter()
                 .map(|c| TokenBuffer2D::from(dmatrix![*c]))
                 .collect();
@@ -136,7 +136,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
                                     microflow::ops::FullyConnectedOptions {
                                         fused_activation: #fused_activation,
                                     },
-                                    (#constant_0_vec, #constant_1, #constant_2_vec, #constant_3)
+                                    (#constant_0_vec, #constants_1, #constant_2_vec, #constants_3)
                                 ).buffer
                             ),*
                         ]
@@ -155,7 +155,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
                     microflow::ops::FullyConnectedOptions {
                         fused_activation: #fused_activation,
                     },
-                    (#constant_0, #constant_1, #constant_2, #constant_3)
+                    (#constants_0, #constants_1, #constants_2, #constants_3)
                 );
             }
         };

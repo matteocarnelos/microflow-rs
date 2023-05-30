@@ -1,14 +1,15 @@
 use core::array;
+
+use libm::roundf;
 use nalgebra::Const;
 
-use libm::{fmaxf, fminf};
-use nalgebra::SMatrix;
-
 use crate::activation::FusedActivation;
+use crate::activation::{relu, relu6};
+use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::Tensor4D;
 
-// TODO: Optimize (quantized op)
+// TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
 
 pub struct AveragePool2DOptions {
     pub fused_activation: FusedActivation,
@@ -36,50 +37,55 @@ pub fn average_pool_2d<
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
     options: AveragePool2DOptions,
+    constants: (f32, f32),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
-    let input = input.dequantize();
-    let output = [SMatrix::from_fn(|i, j| {
-        array::from_fn(|c| {
-            let mut len = FILTER_ROWS * FILTER_COLS;
-            let view: SMatrix<f32, FILTER_ROWS, FILTER_COLS> =
-                SMatrix::from_fn(|m, n| match options.padding {
-                    AveragePool2DPadding::SAME => {
-                        let shift = ((FILTER_ROWS - 1) / 2, (FILTER_COLS - 1) / 2);
-                        let index = (
-                            if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
-                                x
+    Tensor4D::new(
+        [Buffer2D::from_fn(|i, j| {
+            array::from_fn(|c| {
+                let mut len = FILTER_ROWS * FILTER_COLS;
+                let view: Buffer2D<T, FILTER_ROWS, FILTER_COLS> =
+                    Buffer2D::from_fn(|m, n| match options.padding {
+                        AveragePool2DPadding::SAME => {
+                            let shift = ((FILTER_ROWS - 1) / 2, (FILTER_COLS - 1) / 2);
+                            let index = (
+                                if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
+                                    x
+                                } else {
+                                    len -= 1;
+                                    return T::from_superset_unchecked(&0);
+                                },
+                                if let Some(x) = (options.strides.1 * j + n).checked_sub(shift.1) {
+                                    x
+                                } else {
+                                    len -= 1;
+                                    return T::from_superset_unchecked(&0);
+                                },
+                            );
+                            if let Some(x) = input.buffer[0].get(index) {
+                                x.get(c).copied().unwrap_or(x[0])
                             } else {
                                 len -= 1;
-                                return 0.;
-                            },
-                            if let Some(x) = (options.strides.1 * j + n).checked_sub(shift.1) {
-                                x
-                            } else {
-                                len -= 1;
-                                return 0.;
-                            },
-                        );
-                        if let Some(x) = input[0].get(index) {
-                            x.get(c).copied().unwrap_or(x[0])
-                        } else {
-                            len -= 1;
-                            0.
+                                T::from_superset_unchecked(&0)
+                            }
                         }
-                    }
-                    AveragePool2DPadding::VALID => {
-                        let x = input[0][(options.strides.0 * i + m, options.strides.1 * j + n)];
-                        x.get(c).copied().unwrap_or(x[0])
-                    }
-                });
-            let y = view.sum() / len as f32;
-            match options.fused_activation {
-                FusedActivation::NONE => y,
-                FusedActivation::RELU => fmaxf(y, 0.),
-                FusedActivation::RELU6 => fminf(fmaxf(y, 0.), 6.),
-            }
-        })
-    })];
-    Tensor4D::quantize(output, output_scale, output_zero_point)
+                        AveragePool2DPadding::VALID => {
+                            let x = input.buffer[0]
+                                [(options.strides.0 * i + m, options.strides.1 * j + n)];
+                            x.get(c).copied().unwrap_or(x[0])
+                        }
+                    });
+                let x = 1. / len as f32 * view.cast::<i32>().sum() as f32;
+                let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
+                match options.fused_activation {
+                    FusedActivation::NONE => y,
+                    FusedActivation::RELU => relu(y, output_zero_point[0]),
+                    FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+                }
+            })
+        })],
+        output_scale,
+        output_zero_point,
+    )
 }
 
 #[cfg(test)]
@@ -104,6 +110,7 @@ mod tests {
         padding: AveragePool2DPadding::SAME,
         strides: (1, 1),
     };
+    const CONSTANTS: (f32, f32) = (0.866_666_7, 3.866_666_6);
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
             [8, 9], [9, 10], [10, 11];
@@ -121,7 +128,8 @@ mod tests {
                 FILTER_SHAPE,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,
-                OPTIONS
+                OPTIONS,
+                CONSTANTS,
             ),
             OUTPUT
         );

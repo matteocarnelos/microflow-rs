@@ -6,6 +6,8 @@ use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::Tensor2D;
 
+// TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
+
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
