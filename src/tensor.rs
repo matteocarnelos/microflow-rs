@@ -1,8 +1,19 @@
 use core::fmt::Debug;
 
 use crate::buffer::{Buffer2D, Buffer4D};
-
 use crate::quantize::{dequantize, quantize, Quantized};
+
+#[derive(Copy, Clone)]
+pub enum ViewPadding {
+    SAME,
+    VALID,
+}
+
+pub struct View2D<T: Quantized, const ROWS: usize, const COLS: usize> {
+    pub buffer: Buffer2D<T, ROWS, COLS>,
+    pub mask: Buffer2D<i32, ROWS, COLS>,
+    pub len: usize,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Tensor2D<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize> {
@@ -58,7 +69,7 @@ impl<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize>
         )
     }
 
-    pub fn dequantize(self) -> Buffer2D<f32, ROWS, COLS> {
+    pub fn dequantize(&self) -> Buffer2D<f32, ROWS, COLS> {
         self.buffer.map_with_location(|i, _, q| {
             dequantize(
                 q,
@@ -139,7 +150,7 @@ impl<
         )
     }
 
-    pub fn dequantize(self) -> Buffer4D<f32, BATCHES, ROWS, COLS, CHANS> {
+    pub fn dequantize(&self) -> Buffer4D<f32, BATCHES, ROWS, COLS, CHANS> {
         self.buffer.map(|m| {
             m.map(|a| {
                 let mut iter = 0..CHANS;
@@ -156,6 +167,93 @@ impl<
                 })
             })
         })
+    }
+
+    pub fn view_2d<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
+        &self,
+        focus: (usize, usize),
+        batch: usize,
+        channel: usize,
+        padding: ViewPadding,
+        strides: (usize, usize),
+    ) -> View2D<T, VIEW_ROWS, VIEW_COLS> {
+        let mut len = VIEW_ROWS * VIEW_COLS;
+        let mut mask = Buffer2D::from_element(1);
+        View2D {
+            buffer: Buffer2D::from_fn(|m, n| match padding {
+                ViewPadding::SAME => {
+                    let shift = ((VIEW_ROWS - 1) / 2, (VIEW_COLS - 1) / 2);
+                    let index = (
+                        if let Some(x) = (strides.0 * focus.0 + m).checked_sub(shift.0) {
+                            x
+                        } else {
+                            len -= 1;
+                            mask[(m, n)] = 0;
+                            return T::from_superset_unchecked(&0);
+                        },
+                        if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
+                            x
+                        } else {
+                            len -= 1;
+                            mask[(m, n)] = 0;
+                            return T::from_superset_unchecked(&0);
+                        },
+                    );
+                    if let Some(x) = self.buffer[batch].get(index) {
+                        x.get(channel).copied().unwrap_or(x[0])
+                    } else {
+                        len -= 1;
+                        mask[(m, n)] = 0;
+                        T::from_superset_unchecked(&0)
+                    }
+                }
+                ViewPadding::VALID => {
+                    let x = self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)];
+                    x.get(channel).copied().unwrap_or(x[0])
+                }
+            }),
+            mask,
+            len,
+        }
+    }
+
+    pub fn view_3d<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
+        &self,
+        focus: (usize, usize),
+        batch: usize,
+        padding: ViewPadding,
+        strides: (usize, usize),
+    ) -> (Buffer2D<[T; CHANS], VIEW_ROWS, VIEW_COLS>, usize) {
+        let mut len = VIEW_ROWS * VIEW_COLS * CHANS;
+        (
+            Buffer2D::from_fn(|m, n| match padding {
+                ViewPadding::SAME => {
+                    let shift = ((VIEW_ROWS - 1) / 2, (VIEW_COLS - 1) / 2);
+                    let index = (
+                        if let Some(x) = (strides.0 * focus.0 + m).checked_sub(shift.0) {
+                            x
+                        } else {
+                            len -= CHANS;
+                            return [T::from_superset_unchecked(&0); CHANS];
+                        },
+                        if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
+                            x
+                        } else {
+                            len -= CHANS;
+                            return [T::from_superset_unchecked(&0); CHANS];
+                        },
+                    );
+                    self.buffer[batch].get(index).copied().unwrap_or_else(|| {
+                        len -= CHANS;
+                        [T::from_superset_unchecked(&0); CHANS]
+                    })
+                }
+                ViewPadding::VALID => {
+                    self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)]
+                }
+            }),
+            len,
+        )
     }
 }
 
@@ -211,6 +309,19 @@ mod tests {
             [13., 14.039999], [15., 16.119999], [17., 17.939999];
             [19., 20.019999], [21., 22.099998], [23., 23.919998]
         ],
+    ];
+    const TENSOR_4D_VIEW_2D_BUFFER: Buffer2D<i8, 2, 3> = matrix![
+        55, 63, 71;
+        0,  0,  0
+    ];
+    const TENSOR_4D_VIEW_2D_MASK: Buffer2D<i32, 2, 3> = matrix![
+        1, 1, 1;
+        0, 0, 0
+    ];
+    const TENSOR_4D_VIEW_2D_LEN: usize = 3;
+    const TENSOR_4D_VIEW_3D: Buffer2D<[i8; 2], 2, 3> = matrix![
+        [55, 59], [63, 66], [71, 74];
+        [0, 0],   [0, 0],   [0, 0]
     ];
 
     const TENSOR_4D_TO_TENSOR_2D_BUFFER: Buffer2D<i8, 2, 12> = matrix![
@@ -272,6 +383,32 @@ mod tests {
             TENSOR_4D_ZERO_POINT,
         );
         assert_eq!(tensor.dequantize(), TENSOR_4D_BUFFER_DEQUANTIZED);
+    }
+
+    #[test]
+    fn tensor_4d_view_2d() {
+        let tensor = Tensor4D::new(
+            TENSOR_4D_BUFFER_QUANTIZED,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        let view: View2D<i8, 2, 3> = tensor.view_2d((1, 1), 0, 0, ViewPadding::SAME, (1, 1));
+        assert_eq!(view.buffer, TENSOR_4D_VIEW_2D_BUFFER);
+        assert_eq!(view.mask, TENSOR_4D_VIEW_2D_MASK);
+        assert_eq!(view.len, TENSOR_4D_VIEW_2D_LEN);
+    }
+
+    #[test]
+    fn tensor_4d_view_3d() {
+        let tensor = Tensor4D::new(
+            TENSOR_4D_BUFFER_QUANTIZED,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        assert_eq!(
+            tensor.view_3d((1, 1), 0, ViewPadding::SAME, (1, 1)),
+            (TENSOR_4D_VIEW_3D, 6)
+        );
     }
 
     #[test]

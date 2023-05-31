@@ -1,7 +1,7 @@
 use crate::activation::TokenFusedActivation;
 use crate::quantize::TokenQuantized;
-use crate::tensor::TokenTensor4D;
-use crate::tflite_flatbuffers::tflite::{Operator, Padding, Tensor, TensorType};
+use crate::tensor::{TokenTensor4D, TokenViewPadding};
+use crate::tflite_flatbuffers::tflite::{Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -11,7 +11,7 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) filter_shape: (usize, usize),
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) padding: Padding,
+    pub(crate) padding: TokenViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (f32, f32),
 }
@@ -44,8 +44,8 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
                 options.filter_width() as usize,
             ),
             output,
-            fused_activation: TokenFusedActivation(options.fused_activation_function()),
-            padding: options.padding(),
+            fused_activation: options.fused_activation_function().into(),
+            padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
             constants,
         }
@@ -67,12 +67,8 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
         let (filter_shape_0, filter_shape_1) = self.filter_shape;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
-        let fused_activation = &self.fused_activation;
-        let padding = match self.padding {
-            Padding::SAME => quote!(microflow::ops::AveragePool2DPadding::SAME),
-            Padding::VALID => quote!(microflow::ops::AveragePool2DPadding::VALID),
-            _ => unreachable!(),
-        };
+        let fused_activation = self.fused_activation;
+        let padding = self.padding;
         let (strides_0, strides_1) = self.strides;
         let (constants_0, constants_1) = self.constants;
 
@@ -98,7 +94,6 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
 mod tests {
     use super::*;
     use crate::buffer::TokenBuffer4D;
-    use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
 
     #[test]
     fn average_pool_2d_preprocess() {
@@ -129,8 +124,8 @@ mod tests {
                 scale: vec![0.1],
                 zero_point: vec![2i8],
             },
-            fused_activation: TokenFusedActivation(ActivationFunctionType::NONE),
-            padding: Padding::SAME,
+            fused_activation: TokenFusedActivation::NONE,
+            padding: TokenViewPadding::SAME,
             strides: (1, 1),
             constants: (0.3, 0.4),
         };

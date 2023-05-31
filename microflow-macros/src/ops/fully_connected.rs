@@ -60,7 +60,7 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         Self {
             weights,
             output,
-            fused_activation: TokenFusedActivation(options.fused_activation_function()),
+            fused_activation: options.fused_activation_function().into(),
             constants,
             capacity,
         }
@@ -97,7 +97,7 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
         let weights = &self.weights;
         let output_scale = self.output.scale[0];
         let output_zero_point = self.output.zero_point[0];
-        let fused_activation = &self.fused_activation;
+        let fused_activation = self.fused_activation;
         let (constants_0, constants_1, constants_2, constants_3) = &self.constants;
 
         let output = if self.capacity.is_some() && self.capacity.unwrap() < weights.buffer.nrows() {
@@ -166,7 +166,6 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
     use nalgebra::dmatrix;
 
     #[test]
@@ -225,7 +224,7 @@ mod tests {
                 scale: vec![0.9],
                 zero_point: vec![10],
             },
-            fused_activation: TokenFusedActivation(ActivationFunctionType::RELU),
+            fused_activation: TokenFusedActivation::RELU,
             constants: (
                 TokenBuffer2D::from(dmatrix![11., 12.]),
                 13.,
@@ -274,7 +273,7 @@ mod tests {
                 scale: vec![0.7],
                 zero_point: vec![8],
             },
-            fused_activation: TokenFusedActivation(ActivationFunctionType::RELU),
+            fused_activation: TokenFusedActivation::RELU,
             constants: (
                 TokenBuffer2D::from(dmatrix![9., 10.]),
                 11.,

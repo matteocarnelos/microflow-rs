@@ -1,7 +1,7 @@
 use crate::activation::TokenFusedActivation;
 use crate::quantize::TokenQuantized;
-use crate::tensor::{TokenTensor2D, TokenTensor4D};
-use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Padding, Tensor, TensorType};
+use crate::tensor::{TokenTensor2D, TokenTensor4D, TokenViewPadding};
+use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -11,7 +11,7 @@ pub(crate) struct TokenDepthwiseConv2D<T: TokenQuantized> {
     pub(crate) biases: TokenTensor2D<i32>,
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) padding: Padding,
+    pub(crate) padding: TokenViewPadding,
     pub(crate) strides: (usize, usize),
 }
 
@@ -50,8 +50,8 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
             weights,
             biases,
             output,
-            fused_activation: TokenFusedActivation(options.fused_activation_function()),
-            padding: options.padding(),
+            fused_activation: options.fused_activation_function().into(),
+            padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
         }
     }
@@ -65,12 +65,8 @@ impl<T: TokenQuantized> ToTokens for TokenDepthwiseConv2D<T> {
         let biases = &self.biases;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
-        let fused_activation = &self.fused_activation;
-        let padding = match self.padding {
-            Padding::SAME => quote!(microflow::ops::DepthwiseConv2DPadding::SAME),
-            Padding::VALID => quote!(microflow::ops::DepthwiseConv2DPadding::VALID),
-            _ => unreachable!(),
-        };
+        let fused_activation = self.fused_activation;
+        let padding = self.padding;
         let (strides_0, strides_1) = self.strides;
 
         let output = quote! {
@@ -95,7 +91,6 @@ impl<T: TokenQuantized> ToTokens for TokenDepthwiseConv2D<T> {
 mod tests {
     use super::*;
     use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
-    use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
     use nalgebra::dmatrix;
 
     #[test]
@@ -122,8 +117,8 @@ mod tests {
                 scale: vec![0.21],
                 zero_point: vec![22],
             },
-            fused_activation: TokenFusedActivation(ActivationFunctionType::RELU6),
-            padding: Padding::SAME,
+            fused_activation: TokenFusedActivation::RELU6,
+            padding: TokenViewPadding::SAME,
             strides: (1, 1),
         };
         let weights = &layer.weights;

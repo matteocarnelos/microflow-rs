@@ -1,23 +1,18 @@
 use core::array;
 
-use libm::{fmaxf, fminf};
+use libm::roundf;
 use nalgebra::SMatrix;
+use simba::scalar::SupersetOf;
 
-use crate::activation::FusedActivation;
+use crate::activation::{relu, relu6, FusedActivation};
+use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor2D, Tensor4D};
-
-// TODO: Optimize (constants + quantized op)
+use crate::tensor::{Tensor4D, View2D, ViewPadding};
 
 pub struct DepthwiseConv2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: DepthwiseConv2DPadding,
+    pub padding: ViewPadding,
     pub strides: (usize, usize),
-}
-
-pub enum DepthwiseConv2DPadding {
-    SAME,
-    VALID,
 }
 
 pub fn depthwise_conv_2d<
@@ -34,57 +29,55 @@ pub fn depthwise_conv_2d<
 >(
     input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
     weights: Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
-    biases: Tensor2D<i32, WEIGHTS_CHANS, 1, WEIGHTS_QUANTS>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
     options: DepthwiseConv2DOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+    ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
-    let input = input.dequantize();
-    let weights = weights.dequantize();
-    let biases = biases.dequantize();
     let output = [SMatrix::from_fn(|i, j| {
         array::from_fn(|c| {
-            let view: SMatrix<f32, WEIGHTS_ROWS, WEIGHTS_COLS> =
-                SMatrix::from_fn(|m, n| match options.padding {
-                    DepthwiseConv2DPadding::SAME => {
-                        let shift = ((WEIGHTS_ROWS - 1) / 2, (WEIGHTS_COLS - 1) / 2);
-                        let index = (
-                            if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
-                                x
-                            } else {
-                                return 0.;
-                            },
-                            if let Some(x) = (options.strides.1 * j + n).checked_sub(shift.1) {
-                                x
-                            } else {
-                                return 0.;
-                            },
-                        );
-                        if let Some(x) = input[0].get(index) {
-                            x.get(c).copied().unwrap_or(x[0])
-                        } else {
-                            0.
-                        }
-                    }
-                    DepthwiseConv2DPadding::VALID => {
-                        let x = input[0][(options.strides.0 * i + m, options.strides.1 * j + n)];
-                        x.get(c).copied().unwrap_or(x[0])
-                    }
-                });
-            let y = view.zip_fold(&weights[0], 0f32, |acc, e, a| acc + e * a[c]) + biases[c];
+            let view: View2D<T, WEIGHTS_ROWS, WEIGHTS_COLS> =
+                input.view_2d((i, j), 0, c, options.padding, options.strides);
+            let x = (
+                view.buffer.zip_fold(&weights.buffer[0], 0i32, |acc, v, w| {
+                    acc + i32::from_subset(&v) * i32::from_subset(&w[c])
+                }),
+                view.buffer.cast::<i32>().sum() * i32::from_subset(&weights.zero_point[c]),
+            );
+            let constants = (
+                constants.0,
+                constants.1,
+                i32::from_subset(&input.zero_point[0])
+                    * weights.buffer[0].zip_fold(&view.mask, 0i32, |acc, w, m| {
+                        acc + i32::from_subset(&w[c]) * m
+                    }),
+                view.len as i32
+                    * i32::from_subset(&input.zero_point[0])
+                    * i32::from_subset(&weights.zero_point[c]),
+            );
+            let y = T::from_superset_unchecked(&roundf(
+                f32::from_subset(&output_zero_point[0])
+                    + constants.0[c]
+                    + constants.1[c] * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
+            ));
             match options.fused_activation {
                 FusedActivation::NONE => y,
-                FusedActivation::RELU => fmaxf(y, 0.),
-                FusedActivation::RELU6 => fminf(fmaxf(y, 0.), 6.),
+                FusedActivation::RELU => relu(y, output_zero_point[0]),
+                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
             }
         })
     })];
-    Tensor4D::quantize(output, output_scale, output_zero_point)
+    Tensor4D::new(output, output_scale, output_zero_point)
 }
 
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;
+
+    use crate::tensor::Tensor2D;
 
     use super::*;
 
@@ -104,7 +97,7 @@ mod tests {
         scale: [0.27, 0.28],
         zero_point: [29, 30],
     };
-    const BIASES: Tensor2D<i32, 2, 1, 2> = Tensor2D {
+    const _BIASES: Tensor2D<i32, 2, 1, 2> = Tensor2D {
         buffer: matrix![
             31;
             32
@@ -116,9 +109,13 @@ mod tests {
     const OUTPUT_ZERO_POINT: [i8; 1] = [38];
     const OPTIONS: DepthwiseConv2DOptions = DepthwiseConv2DOptions {
         fused_activation: FusedActivation::NONE,
-        padding: DepthwiseConv2DPadding::SAME,
+        padding: ViewPadding::SAME,
         strides: (1, 1),
     };
+    const CONSTANTS: (Buffer2D<f32, 2, 1>, Buffer2D<f32, 2, 1>) = (
+        matrix![-3.567_567_6; -3.675_675_7],
+        matrix![0.094_864_86; 0.098_378_378],
+    );
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
             [66, 63], [82, 78], [65, 62];
@@ -134,10 +131,10 @@ mod tests {
             depthwise_conv_2d(
                 INPUT,
                 WEIGHTS,
-                BIASES,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,
-                OPTIONS
+                OPTIONS,
+                CONSTANTS,
             ),
             OUTPUT
         );

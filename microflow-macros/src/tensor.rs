@@ -8,7 +8,13 @@ use simba::scalar::SupersetOf;
 
 use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
 use crate::quantize::TokenQuantized;
-use crate::tflite_flatbuffers::tflite::{Buffer, Tensor};
+use crate::tflite_flatbuffers::tflite::{Buffer, Padding, Tensor};
+
+#[derive(Copy, Clone)]
+pub(crate) enum TokenViewPadding {
+    SAME,
+    VALID,
+}
 
 #[derive(Debug)]
 pub(crate) struct TokenTensor2D<T: TokenQuantized> {
@@ -24,6 +30,26 @@ pub(crate) struct TokenTensor4D<T: TokenQuantized> {
     pub(crate) shape: Vec<usize>,
     pub(crate) scale: Vec<f32>,
     pub(crate) zero_point: Vec<T>,
+}
+
+impl ToTokens for TokenViewPadding {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            Self::SAME => quote!(microflow::tensor::ViewPadding::SAME),
+            Self::VALID => quote!(microflow::tensor::ViewPadding::VALID),
+        }
+        .to_tokens(tokens);
+    }
+}
+
+impl From<Padding> for TokenViewPadding {
+    fn from(padding: Padding) -> Self {
+        match padding {
+            Padding::SAME => Self::SAME,
+            Padding::VALID => Self::VALID,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl<T: TokenQuantized> TokenTensor2D<T> {
@@ -158,6 +184,15 @@ mod tests {
     use nalgebra::dmatrix;
 
     use super::*;
+
+    #[test]
+    fn view_padding_to_tokens() {
+        let padding = TokenViewPadding::from(Padding::VALID);
+        assert_eq!(
+            padding.to_token_stream().to_string(),
+            quote!(microflow::tensor::ViewPadding::VALID).to_string()
+        );
+    }
 
     #[test]
     fn tensor_2d_to_tokens() {

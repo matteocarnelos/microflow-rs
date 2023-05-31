@@ -7,6 +7,7 @@ use crate::quantize::Quantized;
 use crate::tensor::Tensor2D;
 
 // TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
+// TODO: See if possible to implement paging here
 
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
@@ -34,29 +35,27 @@ pub fn fully_connected<
         input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
         input.buffer.cast::<i32>().column_sum() * i32::from_subset(&weights.zero_point[0]),
     );
-    Tensor2D::new(
-        Buffer2D::from_fn(|i, j| {
-            let y = T::from_superset_unchecked(&roundf(
-                f32::from_subset(&output_zero_point[0])
-                    + constants.0[j]
-                    + constants.1
-                        * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
-            ));
-            match options.fused_activation {
-                FusedActivation::NONE => y,
-                FusedActivation::RELU => relu(y, output_zero_point[0]),
-                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
-            }
-        }),
-        output_scale,
-        output_zero_point,
-    )
+    let output = Buffer2D::from_fn(|i, j| {
+        let y = T::from_superset_unchecked(&roundf(
+            f32::from_subset(&output_zero_point[0])
+                + constants.0[j]
+                + constants.1
+                    * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
+        ));
+        match options.fused_activation {
+            FusedActivation::NONE => y,
+            FusedActivation::RELU => relu(y, output_zero_point[0]),
+            FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+        }
+    });
+    Tensor2D::new(output, output_scale, output_zero_point)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::matrix;
+
+    use super::*;
 
     const INPUT: Tensor2D<i8, 2, 3, 1> = Tensor2D {
         buffer: matrix![

@@ -7,19 +7,14 @@ use crate::activation::FusedActivation;
 use crate::activation::{relu, relu6};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::Tensor4D;
+use crate::tensor::{Tensor4D, View2D, ViewPadding};
 
 // TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
 
 pub struct AveragePool2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: AveragePool2DPadding,
+    pub padding: ViewPadding,
     pub strides: (usize, usize),
-}
-
-pub enum AveragePool2DPadding {
-    SAME,
-    VALID,
 }
 
 pub fn average_pool_2d<
@@ -39,53 +34,20 @@ pub fn average_pool_2d<
     options: AveragePool2DOptions,
     constants: (f32, f32),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
-    Tensor4D::new(
-        [Buffer2D::from_fn(|i, j| {
-            array::from_fn(|c| {
-                let mut len = FILTER_ROWS * FILTER_COLS;
-                let view: Buffer2D<T, FILTER_ROWS, FILTER_COLS> =
-                    Buffer2D::from_fn(|m, n| match options.padding {
-                        AveragePool2DPadding::SAME => {
-                            let shift = ((FILTER_ROWS - 1) / 2, (FILTER_COLS - 1) / 2);
-                            let index = (
-                                if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
-                                    x
-                                } else {
-                                    len -= 1;
-                                    return T::from_superset_unchecked(&0);
-                                },
-                                if let Some(x) = (options.strides.1 * j + n).checked_sub(shift.1) {
-                                    x
-                                } else {
-                                    len -= 1;
-                                    return T::from_superset_unchecked(&0);
-                                },
-                            );
-                            if let Some(x) = input.buffer[0].get(index) {
-                                x.get(c).copied().unwrap_or(x[0])
-                            } else {
-                                len -= 1;
-                                T::from_superset_unchecked(&0)
-                            }
-                        }
-                        AveragePool2DPadding::VALID => {
-                            let x = input.buffer[0]
-                                [(options.strides.0 * i + m, options.strides.1 * j + n)];
-                            x.get(c).copied().unwrap_or(x[0])
-                        }
-                    });
-                let x = 1. / len as f32 * view.cast::<i32>().sum() as f32;
-                let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
-                match options.fused_activation {
-                    FusedActivation::NONE => y,
-                    FusedActivation::RELU => relu(y, output_zero_point[0]),
-                    FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
-                }
-            })
-        })],
-        output_scale,
-        output_zero_point,
-    )
+    let output = [Buffer2D::from_fn(|i, j| {
+        array::from_fn(|c| {
+            let view: View2D<T, FILTER_ROWS, FILTER_COLS> =
+                input.view_2d((i, j), 0, c, options.padding, options.strides);
+            let x = 1. / view.len as f32 * view.buffer.cast::<i32>().sum() as f32;
+            let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
+            match options.fused_activation {
+                FusedActivation::NONE => y,
+                FusedActivation::RELU => relu(y, output_zero_point[0]),
+                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+            }
+        })
+    })];
+    Tensor4D::new(output, output_scale, output_zero_point)
 }
 
 #[cfg(test)]
@@ -107,7 +69,7 @@ mod tests {
     const OUTPUT_ZERO_POINT: [i8; 1] = [16];
     const OPTIONS: AveragePool2DOptions = AveragePool2DOptions {
         fused_activation: FusedActivation::NONE,
-        padding: AveragePool2DPadding::SAME,
+        padding: ViewPadding::SAME,
         strides: (1, 1),
     };
     const CONSTANTS: (f32, f32) = (0.866_666_7, 3.866_666_6);

@@ -1,6 +1,6 @@
 use crate::activation::FusedActivation;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor2D, Tensor4D};
+use crate::tensor::{Tensor2D, Tensor4D, ViewPadding};
 use core::array;
 use libm::{fmaxf, fminf};
 use nalgebra::SMatrix;
@@ -9,13 +9,8 @@ use nalgebra::SMatrix;
 
 pub struct Conv2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: Conv2DPadding,
+    pub padding: ViewPadding,
     pub strides: (usize, usize),
-}
-
-pub enum Conv2DPadding {
-    SAME,
-    VALID,
 }
 
 pub fn conv_2d<
@@ -44,7 +39,7 @@ pub fn conv_2d<
         array::from_fn(|b| {
             let view: SMatrix<[f32; INPUT_CHANS], FILTERS_ROWS, FILTERS_COLS> =
                 SMatrix::from_fn(|m, n| match options.padding {
-                    Conv2DPadding::SAME => {
+                    ViewPadding::SAME => {
                         let shift = ((FILTERS_ROWS - 1) / 2, (FILTERS_COLS - 1) / 2);
                         let index = (
                             if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
@@ -60,7 +55,7 @@ pub fn conv_2d<
                         );
                         input[0].get(index).copied().unwrap_or([0.; INPUT_CHANS])
                     }
-                    Conv2DPadding::VALID => {
+                    ViewPadding::VALID => {
                         input[0][(options.strides.0 * i + m, options.strides.1 * j + n)]
                     }
                 });
@@ -120,7 +115,7 @@ mod tests {
     const OUTPUT_ZERO_POINT: [i8; 1] = [50];
     const OPTIONS: Conv2DOptions = Conv2DOptions {
         fused_activation: FusedActivation::NONE,
-        padding: Conv2DPadding::SAME,
+        padding: ViewPadding::SAME,
         strides: (1, 1),
     };
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
