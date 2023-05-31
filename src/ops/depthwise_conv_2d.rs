@@ -7,11 +7,11 @@ use simba::scalar::SupersetOf;
 use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor4D, View2D, ViewPadding};
+use crate::tensor::{Tensor4D, View, ViewPadding};
 
 pub struct DepthwiseConv2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: ViewPadding,
+    pub view_padding: ViewPadding,
     pub strides: (usize, usize),
 }
 
@@ -34,18 +34,28 @@ pub fn depthwise_conv_2d<
     options: DepthwiseConv2DOptions,
     constants: (
         Buffer2D<f32, WEIGHTS_CHANS, 1>,
-        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+        Buffer2D<f32, WEIGHTS_QUANTS, 1>,
     ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
     let output = [SMatrix::from_fn(|i, j| {
+        let view: View<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
+            input.view((i, j), 0, options.view_padding, options.strides);
         array::from_fn(|c| {
-            let view: View2D<T, WEIGHTS_ROWS, WEIGHTS_COLS> =
-                input.view_2d((i, j), 0, c, options.padding, options.strides);
             let x = (
                 view.buffer.zip_fold(&weights.buffer[0], 0i32, |acc, v, w| {
-                    acc + i32::from_subset(&v) * i32::from_subset(&w[c])
+                    acc + i32::from_subset(&v.get(c).copied().unwrap_or(v[0]))
+                        * i32::from_subset(&w[c])
                 }),
-                view.buffer.cast::<i32>().sum() * i32::from_subset(&weights.zero_point[c]),
+                view.buffer.fold(0i32, |acc, a| {
+                    acc + i32::from_subset(&a.get(c).copied().unwrap_or(a[0]))
+                        * i32::from_subset(
+                            &weights
+                                .zero_point
+                                .get(c)
+                                .copied()
+                                .unwrap_or(weights.zero_point[0]),
+                        )
+                }),
             );
             let constants = (
                 constants.0,
@@ -56,17 +66,24 @@ pub fn depthwise_conv_2d<
                     }),
                 view.len as i32
                     * i32::from_subset(&input.zero_point[0])
-                    * i32::from_subset(&weights.zero_point[c]),
+                    * i32::from_subset(
+                        &weights
+                            .zero_point
+                            .get(c)
+                            .copied()
+                            .unwrap_or(weights.zero_point[0]),
+                    ),
             );
             let y = T::from_superset_unchecked(&roundf(
                 f32::from_subset(&output_zero_point[0])
                     + constants.0[c]
-                    + constants.1[c] * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
+                    + constants.1.get(c).copied().unwrap_or(constants.1[0])
+                        * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
             ));
             match options.fused_activation {
-                FusedActivation::NONE => y,
-                FusedActivation::RELU => relu(y, output_zero_point[0]),
-                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+                FusedActivation::None => y,
+                FusedActivation::Relu => relu(y, output_zero_point[0]),
+                FusedActivation::Relu6 => relu6(y, output_scale[0], output_zero_point[0]),
             }
         })
     })];
@@ -108,8 +125,8 @@ mod tests {
     const OUTPUT_SCALE: [f32; 1] = [0.37];
     const OUTPUT_ZERO_POINT: [i8; 1] = [38];
     const OPTIONS: DepthwiseConv2DOptions = DepthwiseConv2DOptions {
-        fused_activation: FusedActivation::NONE,
-        padding: ViewPadding::SAME,
+        fused_activation: FusedActivation::None,
+        view_padding: ViewPadding::Same,
         strides: (1, 1),
     };
     const CONSTANTS: (Buffer2D<f32, 2, 1>, Buffer2D<f32, 2, 1>) = (

@@ -3,9 +3,9 @@ use core::cmp::{max, min};
 use libm::expf;
 
 pub enum FusedActivation {
-    NONE,
-    RELU,
-    RELU6,
+    None,
+    Relu,
+    Relu6,
 }
 
 pub fn relu<T: Quantized>(input: T, zero_point: T) -> T {

@@ -11,7 +11,7 @@ pub(crate) struct TokenConv2D<T: TokenQuantized> {
     pub(crate) biases: TokenTensor2D<i32>,
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) padding: TokenViewPadding,
+    pub(crate) view_padding: TokenViewPadding,
     pub(crate) strides: (usize, usize),
 }
 
@@ -49,7 +49,7 @@ impl<T: TokenQuantized> TokenConv2D<T> {
             biases,
             output,
             fused_activation: options.fused_activation_function().into(),
-            padding: options.padding().into(),
+            view_padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
         }
     }
@@ -64,7 +64,7 @@ impl<T: TokenQuantized> ToTokens for TokenConv2D<T> {
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
         let fused_activation = self.fused_activation;
-        let padding = self.padding;
+        let view_padding = self.view_padding;
         let (strides_0, strides_1) = self.strides;
 
         let output = quote! {
@@ -76,7 +76,7 @@ impl<T: TokenQuantized> ToTokens for TokenConv2D<T> {
                 [#(#output_zero_point),*],
                 microflow::ops::Conv2DOptions {
                     fused_activation: #fused_activation,
-                    padding: #padding,
+                    view_padding: #view_padding,
                     strides: (#strides_0, #strides_1),
                 }
             );
@@ -121,13 +121,14 @@ mod tests {
                 scale: vec![0.33],
                 zero_point: vec![34],
             },
-            fused_activation: TokenFusedActivation::RELU6,
-            padding: TokenViewPadding::SAME,
+            fused_activation: TokenFusedActivation::Relu6,
+            view_padding: TokenViewPadding::Same,
             strides: (1, 1),
         };
         let filters = &layer.filters;
         let biases = &layer.biases;
-        let fused_activation = &layer.fused_activation;
+        let fused_activation = layer.fused_activation;
+        let view_padding = layer.view_padding;
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
@@ -139,7 +140,7 @@ mod tests {
                     [34i8],
                     microflow::ops::Conv2DOptions {
                         fused_activation: #fused_activation,
-                        padding: microflow::ops::Conv2DPadding::SAME,
+                        view_padding: #view_padding,
                         strides: (1usize, 1usize),
                     }
                 );

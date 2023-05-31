@@ -12,8 +12,8 @@ use crate::tflite_flatbuffers::tflite::{Buffer, Padding, Tensor};
 
 #[derive(Copy, Clone)]
 pub(crate) enum TokenViewPadding {
-    SAME,
-    VALID,
+    Same,
+    Valid,
 }
 
 #[derive(Debug)]
@@ -35,8 +35,8 @@ pub(crate) struct TokenTensor4D<T: TokenQuantized> {
 impl ToTokens for TokenViewPadding {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         match self {
-            Self::SAME => quote!(microflow::tensor::ViewPadding::SAME),
-            Self::VALID => quote!(microflow::tensor::ViewPadding::VALID),
+            Self::Same => quote!(microflow::tensor::ViewPadding::Same),
+            Self::Valid => quote!(microflow::tensor::ViewPadding::Valid),
         }
         .to_tokens(tokens);
     }
@@ -45,8 +45,8 @@ impl ToTokens for TokenViewPadding {
 impl From<Padding> for TokenViewPadding {
     fn from(padding: Padding) -> Self {
         match padding {
-            Padding::SAME => Self::SAME,
-            Padding::VALID => Self::VALID,
+            Padding::SAME => Self::Same,
+            Padding::VALID => Self::Valid,
             _ => unreachable!(),
         }
     }
@@ -190,7 +190,7 @@ mod tests {
         let padding = TokenViewPadding::from(Padding::VALID);
         assert_eq!(
             padding.to_token_stream().to_string(),
-            quote!(microflow::tensor::ViewPadding::VALID).to_string()
+            quote!(microflow::tensor::ViewPadding::Valid).to_string()
         );
     }
 

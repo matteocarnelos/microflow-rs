@@ -189,7 +189,7 @@ mod tests {
             buffer: TokenBuffer2D::from(dmatrix![
                 11; 12; 13
             ]),
-            shape: vec![1, 3],
+            shape: vec![3, 1],
             scale: vec![0.14],
             zero_point: vec![15],
         };
@@ -224,7 +224,7 @@ mod tests {
                 scale: vec![0.9],
                 zero_point: vec![10],
             },
-            fused_activation: TokenFusedActivation::RELU,
+            fused_activation: TokenFusedActivation::Relu,
             constants: (
                 TokenBuffer2D::from(dmatrix![11., 12.]),
                 13.,
@@ -234,7 +234,7 @@ mod tests {
             capacity: None,
         };
         let weights = &layer.weights;
-        let fused_activation = &layer.fused_activation;
+        let fused_activation = layer.fused_activation;
         let constants_0 = &layer.constants.0;
         let constants_2 = &layer.constants.2;
         assert_eq!(
@@ -273,7 +273,7 @@ mod tests {
                 scale: vec![0.7],
                 zero_point: vec![8],
             },
-            fused_activation: TokenFusedActivation::RELU,
+            fused_activation: TokenFusedActivation::Relu,
             constants: (
                 TokenBuffer2D::from(dmatrix![9., 10.]),
                 11.,

@@ -11,7 +11,7 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) filter_shape: (usize, usize),
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) padding: TokenViewPadding,
+    pub(crate) view_padding: TokenViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (f32, f32),
 }
@@ -45,7 +45,7 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
             ),
             output,
             fused_activation: options.fused_activation_function().into(),
-            padding: options.padding().into(),
+            view_padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
             constants,
         }
@@ -68,7 +68,7 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
         let fused_activation = self.fused_activation;
-        let padding = self.padding;
+        let view_padding = self.view_padding;
         let (strides_0, strides_1) = self.strides;
         let (constants_0, constants_1) = self.constants;
 
@@ -80,7 +80,7 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
                 [#(#output_zero_point),*],
                 microflow::ops::AveragePool2DOptions {
                     fused_activation: #fused_activation,
-                    padding: #padding,
+                    view_padding: #view_padding,
                     strides: (#strides_0, #strides_1),
                 },
                 (#constants_0, #constants_1)
@@ -124,12 +124,13 @@ mod tests {
                 scale: vec![0.1],
                 zero_point: vec![2i8],
             },
-            fused_activation: TokenFusedActivation::NONE,
-            padding: TokenViewPadding::SAME,
+            fused_activation: TokenFusedActivation::None,
+            view_padding: TokenViewPadding::Same,
             strides: (1, 1),
-            constants: (0.3, 0.4),
+            constants: (3., 4.),
         };
-        let fused_activation = &layer.fused_activation;
+        let fused_activation = layer.fused_activation;
+        let view_padding = layer.view_padding;
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
@@ -140,10 +141,10 @@ mod tests {
                     [2i8],
                     microflow::ops::AveragePool2DOptions {
                         fused_activation: #fused_activation,
-                        padding: microflow::ops::AveragePool2DPadding::SAME,
+                        view_padding: #view_padding,
                         strides: (1usize, 1usize),
                     },
-                    (0.3f32, 0.4f32)
+                    (3f32, 4f32)
                 );
             }
             .to_string()

@@ -5,12 +5,12 @@ use crate::quantize::{dequantize, quantize, Quantized};
 
 #[derive(Copy, Clone)]
 pub enum ViewPadding {
-    SAME,
-    VALID,
+    Same,
+    Valid,
 }
 
-pub struct View2D<T: Quantized, const ROWS: usize, const COLS: usize> {
-    pub buffer: Buffer2D<T, ROWS, COLS>,
+pub struct View<T: Quantized, const ROWS: usize, const COLS: usize, const CHANS: usize> {
+    pub buffer: Buffer2D<[T; CHANS], ROWS, COLS>,
     pub mask: Buffer2D<i32, ROWS, COLS>,
     pub len: usize,
 }
@@ -169,19 +169,18 @@ impl<
         })
     }
 
-    pub fn view_2d<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
+    pub fn view<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
         &self,
         focus: (usize, usize),
         batch: usize,
-        channel: usize,
         padding: ViewPadding,
         strides: (usize, usize),
-    ) -> View2D<T, VIEW_ROWS, VIEW_COLS> {
+    ) -> View<T, VIEW_ROWS, VIEW_COLS, CHANS> {
         let mut len = VIEW_ROWS * VIEW_COLS;
         let mut mask = Buffer2D::from_element(1);
-        View2D {
+        View {
             buffer: Buffer2D::from_fn(|m, n| match padding {
-                ViewPadding::SAME => {
+                ViewPadding::Same => {
                     let shift = ((VIEW_ROWS - 1) / 2, (VIEW_COLS - 1) / 2);
                     let index = (
                         if let Some(x) = (strides.0 * focus.0 + m).checked_sub(shift.0) {
@@ -189,71 +188,29 @@ impl<
                         } else {
                             len -= 1;
                             mask[(m, n)] = 0;
-                            return T::from_superset_unchecked(&0);
+                            return [T::from_superset_unchecked(&0); CHANS];
                         },
                         if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
                             x
                         } else {
                             len -= 1;
                             mask[(m, n)] = 0;
-                            return T::from_superset_unchecked(&0);
+                            return [T::from_superset_unchecked(&0); CHANS];
                         },
                     );
-                    if let Some(x) = self.buffer[batch].get(index) {
-                        x.get(channel).copied().unwrap_or(x[0])
-                    } else {
+                    self.buffer[batch].get(index).copied().unwrap_or_else(|| {
                         len -= 1;
                         mask[(m, n)] = 0;
-                        T::from_superset_unchecked(&0)
-                    }
+                        [T::from_superset_unchecked(&0); CHANS]
+                    })
                 }
-                ViewPadding::VALID => {
-                    let x = self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)];
-                    x.get(channel).copied().unwrap_or(x[0])
+                ViewPadding::Valid => {
+                    self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)]
                 }
             }),
             mask,
             len,
         }
-    }
-
-    pub fn view_3d<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
-        &self,
-        focus: (usize, usize),
-        batch: usize,
-        padding: ViewPadding,
-        strides: (usize, usize),
-    ) -> (Buffer2D<[T; CHANS], VIEW_ROWS, VIEW_COLS>, usize) {
-        let mut len = VIEW_ROWS * VIEW_COLS * CHANS;
-        (
-            Buffer2D::from_fn(|m, n| match padding {
-                ViewPadding::SAME => {
-                    let shift = ((VIEW_ROWS - 1) / 2, (VIEW_COLS - 1) / 2);
-                    let index = (
-                        if let Some(x) = (strides.0 * focus.0 + m).checked_sub(shift.0) {
-                            x
-                        } else {
-                            len -= CHANS;
-                            return [T::from_superset_unchecked(&0); CHANS];
-                        },
-                        if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
-                            x
-                        } else {
-                            len -= CHANS;
-                            return [T::from_superset_unchecked(&0); CHANS];
-                        },
-                    );
-                    self.buffer[batch].get(index).copied().unwrap_or_else(|| {
-                        len -= CHANS;
-                        [T::from_superset_unchecked(&0); CHANS]
-                    })
-                }
-                ViewPadding::VALID => {
-                    self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)]
-                }
-            }),
-            len,
-        )
     }
 }
 
@@ -310,19 +267,15 @@ mod tests {
             [19., 20.019999], [21., 22.099998], [23., 23.919998]
         ],
     ];
-    const TENSOR_4D_VIEW_2D_BUFFER: Buffer2D<i8, 2, 3> = matrix![
-        55, 63, 71;
-        0,  0,  0
+    const TENSOR_4D_VIEW_BUFFER: Buffer2D<[i8; 2], 2, 3> = matrix![
+        [55, 59], [63, 66], [71, 74];
+        [0, 0],   [0, 0],    [0, 0]
     ];
-    const TENSOR_4D_VIEW_2D_MASK: Buffer2D<i32, 2, 3> = matrix![
+    const TENSOR_4D_VIEW_MASK: Buffer2D<i32, 2, 3> = matrix![
         1, 1, 1;
         0, 0, 0
     ];
-    const TENSOR_4D_VIEW_2D_LEN: usize = 3;
-    const TENSOR_4D_VIEW_3D: Buffer2D<[i8; 2], 2, 3> = matrix![
-        [55, 59], [63, 66], [71, 74];
-        [0, 0],   [0, 0],   [0, 0]
-    ];
+    const TENSOR_4D_VIEW_LEN: usize = 3;
 
     const TENSOR_4D_TO_TENSOR_2D_BUFFER: Buffer2D<i8, 2, 12> = matrix![
         31, 36, 39, 43, 47, 51, 55,  59,  63,  66,  71,  74;
@@ -386,29 +339,16 @@ mod tests {
     }
 
     #[test]
-    fn tensor_4d_view_2d() {
+    fn view_tensor_4d() {
         let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        let view: View2D<i8, 2, 3> = tensor.view_2d((1, 1), 0, 0, ViewPadding::SAME, (1, 1));
-        assert_eq!(view.buffer, TENSOR_4D_VIEW_2D_BUFFER);
-        assert_eq!(view.mask, TENSOR_4D_VIEW_2D_MASK);
-        assert_eq!(view.len, TENSOR_4D_VIEW_2D_LEN);
-    }
-
-    #[test]
-    fn tensor_4d_view_3d() {
-        let tensor = Tensor4D::new(
-            TENSOR_4D_BUFFER_QUANTIZED,
-            TENSOR_4D_SCALE,
-            TENSOR_4D_ZERO_POINT,
-        );
-        assert_eq!(
-            tensor.view_3d((1, 1), 0, ViewPadding::SAME, (1, 1)),
-            (TENSOR_4D_VIEW_3D, 6)
-        );
+        let view: View<i8, 2, 3, 2> = tensor.view((1, 1), 0, ViewPadding::Same, (1, 1));
+        assert_eq!(view.buffer, TENSOR_4D_VIEW_BUFFER);
+        assert_eq!(view.mask, TENSOR_4D_VIEW_MASK);
+        assert_eq!(view.len, TENSOR_4D_VIEW_LEN);
     }
 
     #[test]

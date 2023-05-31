@@ -4,17 +4,17 @@ use quote::{quote, ToTokens};
 
 #[derive(Copy, Clone)]
 pub(crate) enum TokenFusedActivation {
-    NONE,
-    RELU,
-    RELU6,
+    None,
+    Relu,
+    Relu6,
 }
 
 impl ToTokens for TokenFusedActivation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let output = match self {
-            TokenFusedActivation::NONE => quote!(microflow::activation::FusedActivation::NONE),
-            TokenFusedActivation::RELU => quote!(microflow::activation::FusedActivation::RELU),
-            TokenFusedActivation::RELU6 => quote!(microflow::activation::FusedActivation::RELU6),
+            TokenFusedActivation::None => quote!(microflow::activation::FusedActivation::None),
+            TokenFusedActivation::Relu => quote!(microflow::activation::FusedActivation::Relu),
+            TokenFusedActivation::Relu6 => quote!(microflow::activation::FusedActivation::Relu6),
         };
         output.to_tokens(tokens);
     }
@@ -23,9 +23,9 @@ impl ToTokens for TokenFusedActivation {
 impl From<ActivationFunctionType> for TokenFusedActivation {
     fn from(activation: ActivationFunctionType) -> Self {
         match activation {
-            ActivationFunctionType::NONE => Self::NONE,
-            ActivationFunctionType::RELU => Self::RELU,
-            ActivationFunctionType::RELU6 => Self::RELU6,
+            ActivationFunctionType::NONE => Self::None,
+            ActivationFunctionType::RELU => Self::Relu,
+            ActivationFunctionType::RELU6 => Self::Relu6,
             _ => unimplemented!(),
         }
     }
@@ -40,7 +40,7 @@ mod tests {
         let activation = TokenFusedActivation::from(ActivationFunctionType::RELU);
         assert_eq!(
             activation.to_token_stream().to_string(),
-            quote!(microflow::activation::FusedActivation::RELU).to_string()
+            quote!(microflow::activation::FusedActivation::Relu).to_string()
         );
     }
 }

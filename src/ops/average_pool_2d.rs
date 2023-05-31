@@ -2,18 +2,19 @@ use core::array;
 
 use libm::roundf;
 use nalgebra::Const;
+use simba::scalar::SupersetOf;
 
 use crate::activation::FusedActivation;
 use crate::activation::{relu, relu6};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor4D, View2D, ViewPadding};
+use crate::tensor::{Tensor4D, View, ViewPadding};
 
 // TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
 
 pub struct AveragePool2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: ViewPadding,
+    pub view_padding: ViewPadding,
     pub strides: (usize, usize),
 }
 
@@ -35,15 +36,18 @@ pub fn average_pool_2d<
     constants: (f32, f32),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
+        let view: View<T, FILTER_ROWS, FILTER_COLS, INPUT_CHANS> =
+            input.view((i, j), 0, options.view_padding, options.strides);
         array::from_fn(|c| {
-            let view: View2D<T, FILTER_ROWS, FILTER_COLS> =
-                input.view_2d((i, j), 0, c, options.padding, options.strides);
-            let x = 1. / view.len as f32 * view.buffer.cast::<i32>().sum() as f32;
+            let x = 1. / view.len as f32
+                * view
+                    .buffer
+                    .fold(0i32, |acc, a| acc + i32::from_subset(&a[c])) as f32;
             let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
             match options.fused_activation {
-                FusedActivation::NONE => y,
-                FusedActivation::RELU => relu(y, output_zero_point[0]),
-                FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+                FusedActivation::None => y,
+                FusedActivation::Relu => relu(y, output_zero_point[0]),
+                FusedActivation::Relu6 => relu6(y, output_scale[0], output_zero_point[0]),
             }
         })
     })];
@@ -68,8 +72,8 @@ mod tests {
     const OUTPUT_SCALE: [f32; 1] = [0.15];
     const OUTPUT_ZERO_POINT: [i8; 1] = [16];
     const OPTIONS: AveragePool2DOptions = AveragePool2DOptions {
-        fused_activation: FusedActivation::NONE,
-        padding: ViewPadding::SAME,
+        fused_activation: FusedActivation::None,
+        view_padding: ViewPadding::Same,
         strides: (1, 1),
     };
     const CONSTANTS: (f32, f32) = (0.866_666_7, 3.866_666_6);

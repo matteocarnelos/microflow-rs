@@ -9,7 +9,7 @@ use nalgebra::SMatrix;
 
 pub struct Conv2DOptions {
     pub fused_activation: FusedActivation,
-    pub padding: ViewPadding,
+    pub view_padding: ViewPadding,
     pub strides: (usize, usize),
 }
 
@@ -38,8 +38,8 @@ pub fn conv_2d<
     let output = [SMatrix::from_fn(|i, j| {
         array::from_fn(|b| {
             let view: SMatrix<[f32; INPUT_CHANS], FILTERS_ROWS, FILTERS_COLS> =
-                SMatrix::from_fn(|m, n| match options.padding {
-                    ViewPadding::SAME => {
+                SMatrix::from_fn(|m, n| match options.view_padding {
+                    ViewPadding::Same => {
                         let shift = ((FILTERS_ROWS - 1) / 2, (FILTERS_COLS - 1) / 2);
                         let index = (
                             if let Some(x) = (options.strides.0 * i + m).checked_sub(shift.0) {
@@ -55,7 +55,7 @@ pub fn conv_2d<
                         );
                         input[0].get(index).copied().unwrap_or([0.; INPUT_CHANS])
                     }
-                    ViewPadding::VALID => {
+                    ViewPadding::Valid => {
                         input[0][(options.strides.0 * i + m, options.strides.1 * j + n)]
                     }
                 });
@@ -67,9 +67,9 @@ pub fn conv_2d<
                     .sum::<f32>()
             }) + biases[b];
             match options.fused_activation {
-                FusedActivation::NONE => y,
-                FusedActivation::RELU => fmaxf(y, 0.),
-                FusedActivation::RELU6 => fminf(fmaxf(y, 0.), 6.),
+                FusedActivation::None => y,
+                FusedActivation::Relu => fmaxf(y, 0.),
+                FusedActivation::Relu6 => fminf(fmaxf(y, 0.), 6.),
             }
         })
     })];
@@ -114,8 +114,8 @@ mod tests {
     const OUTPUT_SCALE: [f32; 1] = [0.49];
     const OUTPUT_ZERO_POINT: [i8; 1] = [50];
     const OPTIONS: Conv2DOptions = Conv2DOptions {
-        fused_activation: FusedActivation::NONE,
-        padding: ViewPadding::SAME,
+        fused_activation: FusedActivation::None,
+        view_padding: ViewPadding::Same,
         strides: (1, 1),
     };
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {

@@ -43,9 +43,9 @@ pub fn fully_connected<
                     * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
         ));
         match options.fused_activation {
-            FusedActivation::NONE => y,
-            FusedActivation::RELU => relu(y, output_zero_point[0]),
-            FusedActivation::RELU6 => relu6(y, output_scale[0], output_zero_point[0]),
+            FusedActivation::None => y,
+            FusedActivation::Relu => relu(y, output_zero_point[0]),
+            FusedActivation::Relu6 => relu6(y, output_scale[0], output_zero_point[0]),
         }
     });
     Tensor2D::new(output, output_scale, output_zero_point)
@@ -84,7 +84,7 @@ mod tests {
     const OUTPUT_SCALE: [f32; 1] = [0.29];
     const OUTPUT_ZERO_POINT: [i8; 1] = [30];
     const OPTIONS: FullyConnectedOptions = FullyConnectedOptions {
-        fused_activation: FusedActivation::RELU,
+        fused_activation: FusedActivation::Relu,
     };
     const CONSTANTS: (Buffer2D<f32, 4, 1>, f32, Buffer2D<i32, 1, 4>, i32) = (
         matrix![-4.655_172_3; -3.724_138; -2.793_103_5; -1.862_069],
