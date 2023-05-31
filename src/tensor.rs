@@ -11,7 +11,7 @@ pub enum ViewPadding {
 
 pub struct View<T: Quantized, const ROWS: usize, const COLS: usize, const CHANS: usize> {
     pub buffer: Buffer2D<[T; CHANS], ROWS, COLS>,
-    pub mask: Buffer2D<i32, ROWS, COLS>,
+    pub mask: Buffer2D<bool, ROWS, COLS>,
     pub len: usize,
 }
 
@@ -177,7 +177,7 @@ impl<
         strides: (usize, usize),
     ) -> View<T, VIEW_ROWS, VIEW_COLS, CHANS> {
         let mut len = VIEW_ROWS * VIEW_COLS;
-        let mut mask = Buffer2D::from_element(1);
+        let mut mask = Buffer2D::from_element(true);
         View {
             buffer: Buffer2D::from_fn(|m, n| match padding {
                 ViewPadding::Same => {
@@ -187,20 +187,20 @@ impl<
                             x
                         } else {
                             len -= 1;
-                            mask[(m, n)] = 0;
+                            mask[(m, n)] = false;
                             return [T::from_superset_unchecked(&0); CHANS];
                         },
                         if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
                             x
                         } else {
                             len -= 1;
-                            mask[(m, n)] = 0;
+                            mask[(m, n)] = false;
                             return [T::from_superset_unchecked(&0); CHANS];
                         },
                     );
                     self.buffer[batch].get(index).copied().unwrap_or_else(|| {
                         len -= 1;
-                        mask[(m, n)] = 0;
+                        mask[(m, n)] = false;
                         [T::from_superset_unchecked(&0); CHANS]
                     })
                 }
@@ -271,9 +271,9 @@ mod tests {
         [55, 59], [63, 66], [71, 74];
         [0, 0],   [0, 0],    [0, 0]
     ];
-    const TENSOR_4D_VIEW_MASK: Buffer2D<i32, 2, 3> = matrix![
-        1, 1, 1;
-        0, 0, 0
+    const TENSOR_4D_VIEW_MASK: Buffer2D<bool, 2, 3> = matrix![
+        true,  true,  true;
+        false, false, false
     ];
     const TENSOR_4D_VIEW_LEN: usize = 3;
 

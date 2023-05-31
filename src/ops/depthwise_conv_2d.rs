@@ -1,7 +1,6 @@
 use core::array;
 
 use libm::roundf;
-use nalgebra::SMatrix;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
@@ -37,10 +36,18 @@ pub fn depthwise_conv_2d<
         Buffer2D<f32, WEIGHTS_QUANTS, 1>,
     ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
-    let output = [SMatrix::from_fn(|i, j| {
+    let output = [Buffer2D::from_fn(|i, j| {
         let view: View<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
         array::from_fn(|c| {
+            let input_zero_point = i32::from_subset(&input.zero_point[0]);
+            let weights_zero_point = i32::from_subset(
+                &weights
+                    .zero_point
+                    .get(c)
+                    .copied()
+                    .unwrap_or(weights.zero_point[0]),
+            );
             let x = (
                 view.buffer.zip_fold(&weights.buffer[0], 0i32, |acc, v, w| {
                     acc + i32::from_subset(&v.get(c).copied().unwrap_or(v[0]))
@@ -48,31 +55,20 @@ pub fn depthwise_conv_2d<
                 }),
                 view.buffer.fold(0i32, |acc, a| {
                     acc + i32::from_subset(&a.get(c).copied().unwrap_or(a[0]))
-                        * i32::from_subset(
-                            &weights
-                                .zero_point
-                                .get(c)
-                                .copied()
-                                .unwrap_or(weights.zero_point[0]),
-                        )
-                }),
+                }) * weights_zero_point,
             );
             let constants = (
                 constants.0,
                 constants.1,
-                i32::from_subset(&input.zero_point[0])
+                input_zero_point
                     * weights.buffer[0].zip_fold(&view.mask, 0i32, |acc, w, m| {
-                        acc + i32::from_subset(&w[c]) * m
+                        if m {
+                            acc + i32::from_subset(&w[c])
+                        } else {
+                            acc
+                        }
                     }),
-                view.len as i32
-                    * i32::from_subset(&input.zero_point[0])
-                    * i32::from_subset(
-                        &weights
-                            .zero_point
-                            .get(c)
-                            .copied()
-                            .unwrap_or(weights.zero_point[0]),
-                    ),
+                view.len as i32 * input_zero_point * weights_zero_point,
             );
             let y = T::from_superset_unchecked(&roundf(
                 f32::from_subset(&output_zero_point[0])
