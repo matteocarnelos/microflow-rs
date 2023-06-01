@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7"
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rtic = "1.1"
 rtt-target = { version = "0.3", features = ["cortex-m"] }
 panic-probe = { version = "0.3", features = ["print-rtt"] }

@@ -10,8 +10,6 @@ use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::{Tensor4D, View, ViewPadding};
 
-// TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
-
 pub struct AveragePool2DOptions {
     pub fused_activation: FusedActivation,
     pub view_padding: ViewPadding,

@@ -50,36 +50,20 @@ impl<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize>
             zero_point,
         }
     }
+}
 
-    pub fn quantize(
-        input: Buffer2D<f32, ROWS, COLS>,
-        scale: [f32; QUANTS],
-        zero_point: [T; QUANTS],
-    ) -> Self {
+impl<T: Quantized, const ROWS: usize, const COLS: usize> Tensor2D<T, ROWS, COLS, 1> {
+    pub fn quantize(input: Buffer2D<f32, ROWS, COLS>, scale: [f32; 1], zero_point: [T; 1]) -> Self {
         Self::new(
-            input.map_with_location(|i, _, f| {
-                quantize(
-                    f,
-                    scale.get(i).copied().unwrap_or(scale[0]),
-                    zero_point.get(i).copied().unwrap_or(zero_point[0]),
-                )
-            }),
+            input.map(|f| quantize(f, scale[0], zero_point[0])),
             scale,
             zero_point,
         )
     }
 
     pub fn dequantize(&self) -> Buffer2D<f32, ROWS, COLS> {
-        self.buffer.map_with_location(|i, _, q| {
-            dequantize(
-                q,
-                self.scale.get(i).copied().unwrap_or(self.scale[0]),
-                self.zero_point
-                    .get(i)
-                    .copied()
-                    .unwrap_or(self.zero_point[0]),
-            )
-        })
+        self.buffer
+            .map(|q| dequantize(q, self.scale[0], self.zero_point[0]))
     }
 }
 
@@ -124,49 +108,6 @@ impl<
             scale,
             zero_point,
         }
-    }
-
-    pub fn quantize(
-        input: Buffer4D<f32, BATCHES, ROWS, COLS, CHANS>,
-        scale: [f32; QUANTS],
-        zero_point: [T; QUANTS],
-    ) -> Self {
-        Self::new(
-            input.map(|m| {
-                m.map(|a| {
-                    let mut iter = 0..CHANS;
-                    a.map(|f| {
-                        let i = iter.next().unwrap();
-                        quantize(
-                            f,
-                            scale.get(i).copied().unwrap_or(scale[0]),
-                            zero_point.get(i).copied().unwrap_or(zero_point[0]),
-                        )
-                    })
-                })
-            }),
-            scale,
-            zero_point,
-        )
-    }
-
-    pub fn dequantize(&self) -> Buffer4D<f32, BATCHES, ROWS, COLS, CHANS> {
-        self.buffer.map(|m| {
-            m.map(|a| {
-                let mut iter = 0..CHANS;
-                a.map(|q| {
-                    let i = iter.next().unwrap();
-                    dequantize(
-                        q,
-                        self.scale.get(i).copied().unwrap_or(self.scale[0]),
-                        self.zero_point
-                            .get(i)
-                            .copied()
-                            .unwrap_or(self.zero_point[0]),
-                    )
-                })
-            })
-        })
     }
 
     pub fn view<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
@@ -214,6 +155,32 @@ impl<
     }
 }
 
+impl<
+        T: Quantized,
+        const BATCHES: usize,
+        const ROWS: usize,
+        const COLS: usize,
+        const CHANS: usize,
+    > Tensor4D<T, BATCHES, ROWS, COLS, CHANS, 1>
+{
+    pub fn quantize(
+        input: Buffer4D<f32, BATCHES, ROWS, COLS, CHANS>,
+        scale: [f32; 1],
+        zero_point: [T; 1],
+    ) -> Self {
+        Self::new(
+            input.map(|m| m.map(|a| a.map(|f| quantize(f, scale[0], zero_point[0])))),
+            scale,
+            zero_point,
+        )
+    }
+
+    pub fn dequantize(&self) -> Buffer4D<f32, BATCHES, ROWS, COLS, CHANS> {
+        self.buffer
+            .map(|m| m.map(|a| a.map(|q| dequantize(q, self.scale[0], self.zero_point[0]))))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;
@@ -245,30 +212,20 @@ mod tests {
             [19., 20.], [21., 22.], [23., 24.]
         ],
     ];
-    const TENSOR_4D_SCALE: [f32; 2] = [0.25, 0.26];
-    const TENSOR_4D_ZERO_POINT: [i8; 2] = [27, 28];
+    const TENSOR_4D_SCALE: [f32; 1] = [0.25];
+    const TENSOR_4D_ZERO_POINT: [i8; 1] = [26];
     const TENSOR_4D_BUFFER_QUANTIZED: Buffer4D<i8, 2, 2, 3, 2> = [
         matrix![
-            [31, 36], [39, 43], [47, 51];
-            [55, 59], [63, 66], [71, 74]
+            [30, 34], [38, 42], [46, 50];
+            [54, 58], [62, 66], [70, 74]
         ],
         matrix![
-            [79, 82],   [87, 90],   [95, 97];
-            [103, 105], [111, 113], [119, 120]
-        ],
-    ];
-    const TENSOR_4D_BUFFER_DEQUANTIZED: Buffer4D<f32, 2, 2, 3, 2> = [
-        matrix![
-            [1., 2.08],     [3., 3.8999999],  [5., 5.9799995];
-            [7., 8.059999], [9., 9.879999],   [11., 11.959999]
-        ],
-        matrix![
-            [13., 14.039999], [15., 16.119999], [17., 17.939999];
-            [19., 20.019999], [21., 22.099998], [23., 23.919998]
+            [78, 82],   [86, 90],   [94, 98];
+            [102, 106], [110, 114], [118, 122]
         ],
     ];
     const TENSOR_4D_VIEW_BUFFER: Buffer2D<[i8; 2], 2, 3> = matrix![
-        [55, 59], [63, 66], [71, 74];
+        [54, 58], [62, 66], [70, 74];
         [0, 0],   [0, 0],    [0, 0]
     ];
     const TENSOR_4D_VIEW_MASK: Buffer2D<bool, 2, 3> = matrix![
@@ -278,8 +235,8 @@ mod tests {
     const TENSOR_4D_VIEW_LEN: usize = 3;
 
     const TENSOR_4D_TO_TENSOR_2D_BUFFER: Buffer2D<i8, 2, 12> = matrix![
-        31, 36, 39, 43, 47, 51, 55,  59,  63,  66,  71,  74;
-        79, 82, 87, 90, 95, 97, 103, 105, 111, 113, 119, 120
+        30, 34, 38, 42, 46, 50, 54,  58,  62,  66,  70,  74;
+        78, 82, 86, 90, 94, 98, 102, 106, 110, 114, 118, 122
     ];
 
     #[test]
@@ -335,7 +292,7 @@ mod tests {
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        assert_eq!(tensor.dequantize(), TENSOR_4D_BUFFER_DEQUANTIZED);
+        assert_eq!(tensor.dequantize(), TENSOR_4D_BUFFER);
     }
 
     #[test]
@@ -358,7 +315,7 @@ mod tests {
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        let tensor_2d: Tensor2D<i8, 2, 12, 2> = Tensor2D::from(tensor_4d);
+        let tensor_2d: Tensor2D<i8, 2, 12, 1> = Tensor2D::from(tensor_4d);
         assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
     }
 }

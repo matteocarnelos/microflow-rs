@@ -9,6 +9,6 @@ struct PersonDetect;
 #[test]
 fn person_detect_model() {
     let input = [SMatrix::from_element([0.5])];
-    let output = matrix![0.1796875, 0.8203125];
+    let output = matrix![0.8046875, 0.1953125];
     assert_eq!(PersonDetect::predict(input), output);
 }
