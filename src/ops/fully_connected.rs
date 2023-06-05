@@ -6,9 +6,6 @@ use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::Tensor2D;
 
-// TODO: Performance evaluation (fine cast + iters vs bulk cast + nalgebra built-in)
-// TODO: See if possible to implement paging here
-
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
@@ -19,7 +16,7 @@ pub fn fully_connected<
     const INPUT_COLS: usize,
     const WEIGHTS_COLS: usize,
 >(
-    input: &Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+    input: Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
     weights: Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
@@ -31,9 +28,27 @@ pub fn fully_connected<
         i32,
     ),
 ) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
-    let x = (
-        input.buffer.cast::<i32>() * weights.buffer.cast::<i32>(),
-        input.buffer.cast::<i32>().column_sum() * i32::from_subset(&weights.zero_point[0]),
+    let x: (
+        Buffer2D<i32, INPUT_ROWS, WEIGHTS_COLS>,
+        Buffer2D<i32, INPUT_ROWS, 1>,
+    ) = (
+        Buffer2D::from_fn(|i, j| {
+            input
+                .buffer
+                .row(i)
+                .iter()
+                .zip(weights.buffer.column(j).iter())
+                .fold(0i32, |acc, (i, w)| {
+                    acc + i32::from_subset(i) * i32::from_subset(w)
+                })
+        }),
+        Buffer2D::from_fn(|i, _| {
+            input
+                .buffer
+                .row(i)
+                .fold(0i32, |acc, e| acc + i32::from_subset(&e))
+                * i32::from_subset(&weights.zero_point[0])
+        }),
     );
     let output = Buffer2D::from_fn(|i, j| {
         let y = T::from_superset_unchecked(&roundf(
@@ -105,7 +120,7 @@ mod tests {
     fn fully_connected_layer() {
         assert_eq!(
             fully_connected(
-                &INPUT,
+                INPUT,
                 WEIGHTS,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,

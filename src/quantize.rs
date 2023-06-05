@@ -1,11 +1,9 @@
 use libm::roundf;
-use nalgebra::{ClosedMul, Scalar};
+use nalgebra::Scalar;
 use simba::scalar::{SubsetOf, SupersetOf};
 
-// TODO: Optimize traits
-
-pub trait Quantized: Scalar + ClosedMul + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> {}
-impl<T: Scalar + ClosedMul + Copy + Ord + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
+pub trait Quantized: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> {}
+impl<T: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
 
 pub fn quantize<T: Quantized>(input: f32, scale: f32, zero_point: T) -> T {
     roundf(input / scale + f32::from_subset(&zero_point)).to_subset_unchecked()

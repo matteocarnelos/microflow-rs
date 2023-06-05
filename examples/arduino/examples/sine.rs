@@ -10,7 +10,7 @@ use ufmt_float::uFmt_f32;
 
 use panic_halt as _;
 
-#[model("../../models/sine.tflite", capacity = 1)]
+#[model("../../models/sine.tflite")]
 struct Sine;
 
 #[hal::entry]

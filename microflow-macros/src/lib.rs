@@ -11,7 +11,7 @@ use syn::{parse_macro_input, ItemStruct};
 use crate::tflite_flatbuffers::tflite::TensorType;
 use ops::*;
 use structmeta::StructMeta;
-use syn::{LitInt, LitStr};
+use syn::LitStr;
 use tflite_flatbuffers::tflite::{root_as_model, BuiltinOperator};
 
 mod activation;
@@ -28,7 +28,6 @@ mod tflite_flatbuffers;
 struct Args {
     #[struct_meta(unnamed)]
     path: LitStr,
-    capacity: Option<LitInt>,
 }
 
 #[proc_macro_error]
@@ -45,12 +44,6 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     });
     let model = root_as_model(&buf).unwrap_or_else(|_| {
         abort_call_site!("invalid model, please provide a valid TensorFlow Lite model")
-    });
-
-    let capacity = args.capacity.map(|x| {
-        x.base10_parse::<usize>().unwrap_or_else(|_| {
-            abort_call_site!("invalid value for parameter `capacity`: {}", x.to_string());
-        })
     });
 
     let ident = item.ident;
@@ -118,9 +111,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
                 .get(operator.opcode_index() as usize)
                 .deprecated_builtin_code() as i32,
         ) {
-            BuiltinOperator::FULLY_CONNECTED => {
-                fully_connected::parse(operator, tensors, buffers, capacity)
-            }
+            BuiltinOperator::FULLY_CONNECTED => fully_connected::parse(operator, tensors, buffers),
             BuiltinOperator::DEPTHWISE_CONV_2D => {
                 depthwise_conv_2d::parse(operator, tensors, buffers)
             }
