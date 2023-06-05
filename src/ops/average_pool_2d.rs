@@ -1,6 +1,5 @@
 use core::array;
 
-use libm::roundf;
 use nalgebra::Const;
 use simba::scalar::SupersetOf;
 
@@ -41,7 +40,7 @@ pub fn average_pool_2d<
                 * view
                     .buffer
                     .fold(0i32, |acc, a| acc + i32::from_subset(&a[c])) as f32;
-            let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
+            let y = T::from_superset_unchecked(&(constants.0 * x + constants.1));
             match options.fused_activation {
                 FusedActivation::None => y,
                 FusedActivation::Relu => relu(y, output_zero_point[0]),
@@ -60,7 +59,7 @@ mod tests {
 
     const INPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [1, 2], [3, 4], [5, 6];
+            [1, 2], [3, 4],  [5, 6];
             [7, 8], [9, 10], [11, 12]
         ]],
         scale: [0.13],
@@ -77,8 +76,8 @@ mod tests {
     const CONSTANTS: (f32, f32) = (0.866_666_7, 3.866_666_6);
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [8, 9], [9, 10], [10, 11];
-            [11, 12], [12, 13], [13, 13]
+            [8, 9],   [9, 9],   [9, 10];
+            [10, 11], [11, 12], [12, 13]
         ]],
         scale: [0.15],
         zero_point: [16],

@@ -224,7 +224,7 @@ mod tests {
         let tensor = TokenTensor4D {
             buffer: TokenBuffer4D::from(vec![
                 dmatrix![
-                    vec![1i8, 2i8], vec![3i8, 4i8],  vec![5i8, 6i8];
+                    vec![1i8, 2i8], vec![3i8, 4i8],  vec![5i8,  6i8];
                     vec![7i8, 8i8], vec![9i8, 10i8], vec![11i8, 12i8]
                 ],
                 dmatrix![

@@ -1,4 +1,3 @@
-use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
@@ -51,12 +50,12 @@ pub fn fully_connected<
         }),
     );
     let output = Buffer2D::from_fn(|i, j| {
-        let y = T::from_superset_unchecked(&roundf(
-            f32::from_subset(&output_zero_point[0])
+        let y = T::from_superset_unchecked(
+            &(f32::from_subset(&output_zero_point[0])
                 + constants.0[j]
                 + constants.1
-                    * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
-        ));
+                    * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3))),
+        );
         match options.fused_activation {
             FusedActivation::None => y,
             FusedActivation::Relu => relu(y, output_zero_point[0]),
@@ -82,7 +81,7 @@ mod tests {
     };
     const WEIGHTS: Tensor2D<i8, 3, 4, 1> = Tensor2D {
         buffer: matrix![
-            9, 10, 11, 12;
+            9,  10, 11, 12;
             13, 14, 15, 16;
             17, 18, 19, 20
         ],
@@ -109,8 +108,8 @@ mod tests {
     );
     const OUTPUT: Tensor2D<i8, 2, 4, 1> = Tensor2D {
         buffer: matrix![
-            112, 103, 95, 87;
-            70, 67, 63, 60
+            111, 103, 95, 86;
+            70,  66,  63, 59
         ],
         scale: [0.29],
         zero_point: [30],

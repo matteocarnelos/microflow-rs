@@ -143,7 +143,7 @@ mod tests {
             quote! {
                 [
                     nalgebra::matrix![
-                        [1i8, 2i8], [3i8, 4i8],  [5i8, 6i8];
+                        [1i8, 2i8], [3i8, 4i8],  [5i8,  6i8];
                         [7i8, 8i8], [9i8, 10i8], [11i8, 12i8]
                     ],
                     nalgebra::matrix![

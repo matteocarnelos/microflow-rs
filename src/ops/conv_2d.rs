@@ -1,6 +1,5 @@
 use core::array;
 
-use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
@@ -73,12 +72,12 @@ pub fn conv_2d<
                     }),
                 view.len as i32 * INPUT_CHANS as i32 * input_zero_point * filters_zero_point,
             );
-            let y = T::from_superset_unchecked(&roundf(
-                f32::from_subset(&output_zero_point[0])
+            let y = T::from_superset_unchecked(
+                &(f32::from_subset(&output_zero_point[0])
                     + constants.0[b]
                     + constants.1.get(b).copied().unwrap_or(constants.1[0])
-                        * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
-            ));
+                        * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3))),
+            );
             match options.fused_activation {
                 FusedActivation::None => y,
                 FusedActivation::Relu => relu(y, output_zero_point[0]),
@@ -99,7 +98,7 @@ mod tests {
 
     const INPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [1, 2], [3, 4], [5, 6];
+            [1, 2], [3, 4],  [5, 6];
             [7, 8], [9, 10], [11, 12]
         ]],
         scale: [0.13],
@@ -140,8 +139,8 @@ mod tests {
     );
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [127, 116], [127, 127], [127, 113];
-            [98, 74],   [114, 84],  [82, 67]
+            [127, 116], [127, 127], [127, 112];
+            [98, 73],   [113, 83],  [82, 66]
         ]],
         scale: [0.49],
         zero_point: [50],

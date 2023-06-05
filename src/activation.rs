@@ -37,8 +37,8 @@ mod tests {
     const SOFTMAX_INPUT_2: f32 = 2.;
     const SOFTMAX_INPUT_3: f32 = 3.;
     const SOFTMAX_SUM: f32 = 30.192_875;
-    const SOFTMAX_OUTPUT_1: i8 = 3;
-    const SOFTMAX_TOTAL_PROBABILITY: i8 = 16;
+    const SOFTMAX_OUTPUT_1: i8 = 2;
+    const SOFTMAX_TOTAL_PROBABILITY: i8 = 14;
 
     #[test]
     fn relu_inactive() {

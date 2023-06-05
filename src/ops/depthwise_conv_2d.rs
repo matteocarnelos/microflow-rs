@@ -1,6 +1,5 @@
 use core::array;
 
-use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
@@ -70,12 +69,12 @@ pub fn depthwise_conv_2d<
                     }),
                 view.len as i32 * input_zero_point * weights_zero_point,
             );
-            let y = T::from_superset_unchecked(&roundf(
-                f32::from_subset(&output_zero_point[0])
+            let y = T::from_superset_unchecked(
+                &(f32::from_subset(&output_zero_point[0])
                     + constants.0[c]
                     + constants.1.get(c).copied().unwrap_or(constants.1[0])
-                        * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
-            ));
+                        * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3))),
+            );
             match options.fused_activation {
                 FusedActivation::None => y,
                 FusedActivation::Relu => relu(y, output_zero_point[0]),
@@ -131,7 +130,7 @@ mod tests {
     );
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [66, 63], [82, 78], [65, 62];
+            [65, 63], [82, 78], [64, 61];
             [47, 45], [52, 49], [44, 42]
         ]],
         scale: [0.37],
