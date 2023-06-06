@@ -1,8 +1,6 @@
 use microflow_macros::model;
 use nalgebra::{matrix, SMatrix};
 
-// TODO: Verify assertion with different inference engine
-
 #[model("models/person_detect.tflite")]
 struct PersonDetect;
 

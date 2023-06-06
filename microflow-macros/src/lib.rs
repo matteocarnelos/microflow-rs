@@ -46,7 +46,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         abort_call_site!("invalid model, please provide a valid TensorFlow Lite model")
     });
 
-    let ident = item.ident;
+    let ident = &item.ident;
 
     let subgraph = model.subgraphs().unwrap().get(0);
     let tensors = subgraph.tensors().unwrap();
@@ -134,7 +134,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let tokens = quote! {
-        struct #ident;
+        #item
         impl #ident {
             pub fn predict(input: #input_signature) -> #output_signature {
                 let output = #input_quantization;
