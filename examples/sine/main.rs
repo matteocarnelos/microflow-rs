@@ -6,7 +6,7 @@ use nalgebra::matrix;
 struct Sine;
 
 fn main() {
-    let x = 1.5;
+    let x = 0.5;
     let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     println!("Predicted sin({}): {}", x, y_predicted);

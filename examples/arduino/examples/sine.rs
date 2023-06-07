@@ -19,7 +19,7 @@ fn main() -> ! {
     let pins = hal::pins!(dp);
     let mut serial = hal::default_serial!(dp, pins, 57600);
 
-    let x = 1.5;
+    let x = 0.5;
     let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     let x_display = uFmt_f32::One(x);

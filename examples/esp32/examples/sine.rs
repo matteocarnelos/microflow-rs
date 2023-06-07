@@ -28,7 +28,7 @@ fn main() -> ! {
     wdt0.disable();
     wdt1.disable();
 
-    let x = 1.5;
+    let x = 0.5;
     let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     println!(" ");

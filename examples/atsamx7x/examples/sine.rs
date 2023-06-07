@@ -24,7 +24,7 @@ mod app {
         hal::watchdog::Watchdog::new(cx.device.WDT).disable();
         rtt_init_print!();
 
-        let x = 1.5;
+        let x = 0.5;
         let y_predicted = Sine::predict(matrix![x])[0];
         let y_exact = sinf(x);
         rprintln!("Predicted sin({}): {}", x, y_predicted);
