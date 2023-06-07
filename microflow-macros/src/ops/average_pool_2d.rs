@@ -8,6 +8,7 @@ use quote::{quote, ToTokens};
 use simba::scalar::SupersetOf;
 
 pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
+    pub(crate) input: TokenTensor4D<T>,
     pub(crate) filter_shape: (usize, usize),
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
@@ -39,6 +40,7 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
         let options = operator.builtin_options_as_pool_2_doptions().unwrap();
         let constants = Self::preprocess(&input, &output);
         Self {
+            input,
             filter_shape: (
                 options.filter_height() as usize,
                 options.filter_width() as usize,
@@ -62,8 +64,8 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
 
 impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let mut output_shape = self.output.shape.clone();
-        output_shape.push(self.output.scale.len());
+        let input_shape = &self.input.shape;
+        let output_shape = &self.output.shape;
         let (filter_shape_0, filter_shape_1) = self.filter_shape;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
@@ -73,8 +75,9 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
         let (constants_0, constants_1) = self.constants;
 
         let output = quote! {
-            let output: microflow::tensor::Tensor4D<_, #(#output_shape),*> = microflow::ops::average_pool_2d(
-                output.into(),
+            let input: microflow::tensor::Tensor4D<_, #(#input_shape),*, 1usize> = input.into();
+            let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> = microflow::ops::average_pool_2d(
+                input,
                 (nalgebra::Const::<#filter_shape_0>, nalgebra::Const::<#filter_shape_1>),
                 [#(#output_scale),*],
                 [#(#output_zero_point),*],
@@ -95,56 +98,56 @@ mod tests {
     use super::*;
     use crate::buffer::TokenBuffer4D;
 
-    #[test]
-    fn average_pool_2d_preprocess() {
-        let input = TokenTensor4D {
-            buffer: TokenBuffer4D::new(),
-            shape: vec![1, 2, 3, 2],
-            scale: vec![0.1],
-            zero_point: vec![2],
-        };
-        let output = TokenTensor4D {
-            buffer: TokenBuffer4D::new(),
-            shape: vec![1, 2, 3, 2],
-            scale: vec![0.4],
-            zero_point: vec![5],
-        };
-        let constants = TokenAveragePool2D::preprocess(&input, &output);
-        assert_eq!(constants.0, 0.25);
-        assert_eq!(constants.1, 4.5);
-    }
-
-    #[test]
-    fn average_pool_2d_to_tokens() {
-        let layer = TokenAveragePool2D {
+    fn setup() -> TokenAveragePool2D<i8> {
+        TokenAveragePool2D {
+            input: TokenTensor4D {
+                buffer: TokenBuffer4D::new(),
+                shape: vec![1, 2, 3, 2],
+                scale: vec![0.2],
+                zero_point: vec![3],
+            },
             filter_shape: (2, 3),
             output: TokenTensor4D {
                 buffer: TokenBuffer4D::new(),
                 shape: vec![1, 2, 3, 2],
-                scale: vec![0.1],
-                zero_point: vec![2i8],
+                scale: vec![0.4],
+                zero_point: vec![5],
             },
             fused_activation: TokenFusedActivation::None,
             view_padding: TokenViewPadding::Same,
             strides: (1, 1),
-            constants: (3., 4.),
-        };
+            constants: (6., 7.),
+        }
+    }
+
+    #[test]
+    fn average_pool_2d_preprocess() {
+        let layer = setup();
+        let constants = TokenAveragePool2D::preprocess(&layer.input, &layer.output);
+        assert_eq!(constants.0, 0.5);
+        assert_eq!(constants.1, 3.5);
+    }
+
+    #[test]
+    fn average_pool_2d_to_tokens() {
+        let layer = setup();
         let fused_activation = layer.fused_activation;
         let view_padding = layer.view_padding;
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let output: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = microflow::ops::average_pool_2d(
-                    output.into(),
+                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = input.into();
+                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = microflow::ops::average_pool_2d(
+                    input,
                     (nalgebra::Const::<2usize>, nalgebra::Const::<3usize>),
-                    [0.1f32],
-                    [2i8],
+                    [0.4f32],
+                    [5i8],
                     microflow::ops::AveragePool2DOptions {
                         fused_activation: #fused_activation,
                         view_padding: #view_padding,
                         strides: (1usize, 1usize),
                     },
-                    (3f32, 4f32)
+                    (6f32, 7f32)
                 );
             }
             .to_string()

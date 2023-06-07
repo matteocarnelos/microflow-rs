@@ -3,8 +3,7 @@ use core::array;
 use nalgebra::Const;
 use simba::scalar::SupersetOf;
 
-use crate::activation::FusedActivation;
-use crate::activation::{relu, relu6};
+use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::{Tensor4D, View, ViewPadding};

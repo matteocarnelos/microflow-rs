@@ -58,6 +58,9 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         if shape.len() == 1 {
             shape.insert(0, 1);
         }
+        if shape.len() == 4 {
+            shape = vec![1, shape[1] * shape[2] * shape[3]]
+        }
         Self {
             buffer: TokenBuffer2D::new(),
             shape,
@@ -197,9 +200,9 @@ mod tests {
     #[test]
     fn tensor_2d_to_tokens() {
         let tensor = TokenTensor2D {
-            buffer: TokenBuffer2D::from(dmatrix![
-                1i8, 2i8, 3i8;
-                4i8, 5i8, 6i8
+            buffer: TokenBuffer2D::<i8>::from(dmatrix![
+                1, 2, 3;
+                4, 5, 6
             ]),
             shape: vec![2, 3],
             scale: vec![0.7],
@@ -222,14 +225,14 @@ mod tests {
     #[test]
     fn tensor_4d_to_tokens() {
         let tensor = TokenTensor4D {
-            buffer: TokenBuffer4D::from(vec![
+            buffer: TokenBuffer4D::<i8>::from(vec![
                 dmatrix![
-                    vec![1i8, 2i8], vec![3i8, 4i8],  vec![5i8,  6i8];
-                    vec![7i8, 8i8], vec![9i8, 10i8], vec![11i8, 12i8]
+                    vec![1, 2], vec![3, 4],  vec![5,  6];
+                    vec![7, 8], vec![9, 10], vec![11, 12]
                 ],
                 dmatrix![
-                    vec![13i8, 14i8], vec![15i8, 16i8], vec![17i8, 18i8];
-                    vec![19i8, 20i8], vec![21i8, 22i8], vec![23i8, 24i8]
+                    vec![13, 14], vec![15, 16], vec![17, 18];
+                    vec![19, 20], vec![21, 22], vec![23, 24]
                 ],
             ]),
             shape: vec![2, 2, 3, 2],

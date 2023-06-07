@@ -9,6 +9,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 pub(crate) struct TokenConv2D<T: TokenQuantized> {
+    pub(crate) input: TokenTensor4D<T>,
     pub(crate) filters: TokenTensor4D<T>,
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
@@ -49,6 +50,7 @@ impl<T: TokenQuantized> TokenConv2D<T> {
         let options = operator.builtin_options_as_conv_2_doptions().unwrap();
         let constants = Self::preprocess(&input, &filters, &biases, &output);
         Self {
+            input,
             filters,
             output,
             fused_activation: options.fused_activation_function().into(),
@@ -83,8 +85,8 @@ impl<T: TokenQuantized> TokenConv2D<T> {
 
 impl<T: TokenQuantized> ToTokens for TokenConv2D<T> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let mut output_shape = self.output.shape.clone();
-        output_shape.push(self.output.scale.len());
+        let input_shape = &self.input.shape;
+        let output_shape = &self.output.shape;
         let filters = &self.filters;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
@@ -94,8 +96,9 @@ impl<T: TokenQuantized> ToTokens for TokenConv2D<T> {
         let (constants_0, constants_1) = &self.constants;
 
         let output = quote! {
-            let output: microflow::tensor::Tensor4D<_, #(#output_shape),*> = microflow::ops::conv_2d(
-                output.into(),
+            let input: microflow::tensor::Tensor4D<_, #(#input_shape),*, 1usize> = input.into();
+            let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> = microflow::ops::conv_2d(
+                input,
                 #filters,
                 [#(#output_scale),*],
                 [#(#output_zero_point),*],
@@ -117,71 +120,66 @@ mod tests {
     use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
     use nalgebra::dmatrix;
 
-    #[test]
-    fn conv_2d_preprocess() {
-        let input = TokenTensor4D {
-            buffer: TokenBuffer4D::new(),
-            shape: vec![1, 2, 3, 2],
-            scale: vec![0.1],
-            zero_point: vec![2],
-        };
-        let filters = TokenTensor4D {
-            buffer: TokenBuffer4D::new(),
-            shape: vec![2, 2, 3, 2],
-            scale: vec![0.15, 0.16],
-            zero_point: vec![17, 18],
-        };
-        let biases = TokenTensor2D {
-            buffer: TokenBuffer2D::from(dmatrix![
-                19; 20
-            ]),
-            shape: vec![2, 1],
-            scale: vec![0.21, 0.22],
-            zero_point: vec![23, 24],
-        };
-        let output = TokenTensor4D {
-            buffer: TokenBuffer4D::new(),
-            shape: vec![1, 2, 3, 2],
-            scale: vec![0.25],
-            zero_point: vec![26],
-        };
-        let constants = TokenConv2D::preprocess(&input, &filters, &biases, &output);
-        assert_eq!(constants.0 .0, Some(dmatrix![-3.36; -3.52]));
-        assert_eq!(constants.1 .0, Some(dmatrix![0.060000002; 0.064]));
-    }
-
-    #[test]
-    fn conv_2d_to_tokens() {
-        let layer = TokenConv2D {
+    fn setup() -> TokenConv2D<i8> {
+        TokenConv2D {
+            input: TokenTensor4D {
+                buffer: TokenBuffer4D::new(),
+                shape: vec![1, 2, 3, 2],
+                scale: vec![0.1],
+                zero_point: vec![2],
+            },
             filters: TokenTensor4D {
                 buffer: TokenBuffer4D::from(vec![
                     dmatrix![
-                        vec![1i8, 2i8], vec![3i8, 4i8],  vec![5i8,  6i8];
-                        vec![7i8, 8i8], vec![9i8, 10i8], vec![11i8, 12i8]
+                        vec![3, 4],  vec![5, 6],   vec![7,  8];
+                        vec![9, 10], vec![11, 12], vec![13, 14]
                     ],
                     dmatrix![
-                        vec![13i8, 14i8], vec![15i8, 16i8], vec![17i8, 18i8];
-                        vec![19i8, 20i8], vec![21i8, 22i8], vec![23i8, 24i8]
+                        vec![15, 16], vec![17, 18], vec![19, 20];
+                        vec![21, 22], vec![23, 24], vec![25, 26]
                     ],
                 ]),
                 shape: vec![2, 2, 3, 2],
-                scale: vec![0.25, 0.26],
-                zero_point: vec![27, 28],
+                scale: vec![0.27, 0.28],
+                zero_point: vec![29, 30],
             },
             output: TokenTensor4D {
                 buffer: TokenBuffer4D::new(),
                 shape: vec![1, 2, 3, 2],
-                scale: vec![0.33],
-                zero_point: vec![34],
+                scale: vec![0.31],
+                zero_point: vec![32],
             },
             fused_activation: TokenFusedActivation::Relu6,
             view_padding: TokenViewPadding::Same,
             strides: (1, 1),
             constants: (
+                TokenBuffer2D::from(dmatrix![33., 34.]),
                 TokenBuffer2D::from(dmatrix![35., 36.]),
-                TokenBuffer2D::from(dmatrix![37., 38.]),
             ),
+        }
+    }
+
+    #[test]
+    fn conv_2d_preprocess() {
+        let layer = setup();
+        let biases = TokenTensor2D {
+            buffer: TokenBuffer2D::from(dmatrix![
+                37;
+                38
+            ]),
+            shape: vec![2, 1],
+            scale: vec![0.39, 0.40],
+            zero_point: vec![41, 42],
         };
+        let constants =
+            TokenConv2D::preprocess(&layer.input, &layer.filters, &biases, &layer.output);
+        assert_eq!(constants.0 .0, Some(dmatrix![-5.032258; -5.16129]));
+        assert_eq!(constants.1 .0, Some(dmatrix![0.08709677; 0.090322584]));
+    }
+
+    #[test]
+    fn conv_2d_to_tokens() {
+        let layer = setup();
         let filters = &layer.filters;
         let fused_activation = layer.fused_activation;
         let view_padding = layer.view_padding;
@@ -189,11 +187,12 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let output: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = microflow::ops::conv_2d(
-                    output.into(),
+                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = input.into();
+                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = microflow::ops::conv_2d(
+                    input,
                     #filters,
-                    [0.33f32],
-                    [34i8],
+                    [0.31f32],
+                    [32i8],
                     microflow::ops::Conv2DOptions {
                         fused_activation: #fused_activation,
                         view_padding: #view_padding,

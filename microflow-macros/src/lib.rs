@@ -53,14 +53,25 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     let buffers = model.buffers().unwrap();
 
     let input = tensors.get(subgraph.inputs().unwrap().get(0) as usize);
-    let input_shape: Vec<_> = input.shape().unwrap().iter().map(|e| e as usize).collect();
-    let input_signature = match input_shape.len() {
-        1 => quote!(microflow::buffer::Buffer2D<f32, 0, #(#input_shape),*>),
-        2 => quote!(microflow::buffer::Buffer2D<f32, #(#input_shape),*>),
-        4 => quote!(microflow::buffer::Buffer4D<f32, #(#input_shape),*>),
+    let mut input_shape: Vec<_> = input.shape().unwrap().iter().map(|e| e as usize).collect();
+    if input_shape.len() == 1 {
+        input_shape.insert(0, 1);
+    }
+    let input_type = match input.type_() {
+        TensorType::INT8 => quote!(i8),
+        TensorType::UINT8 => quote!(u8),
         _ => unimplemented!(),
     };
-
+    let input_tensor = match input_shape.len() {
+        2 => quote!(Tensor2D),
+        4 => quote!(Tensor4D),
+        _ => unimplemented!(),
+    };
+    let input_buffer = match input_shape.len() {
+        2 => quote!(Buffer2D),
+        4 => quote!(Buffer4D),
+        _ => unimplemented!(),
+    };
     let input_scale: Vec<_> = input
         .quantization()
         .unwrap()
@@ -88,18 +99,6 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             .collect(),
         _ => unimplemented!(),
     };
-    let input_quantization = match input_shape.len() {
-        1 => {
-            quote!(microflow::tensor::Tensor2D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
-        }
-        2 => {
-            quote!(microflow::tensor::Tensor2D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
-        }
-        4 => {
-            quote!(microflow::tensor::Tensor4D::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]))
-        }
-        _ => unimplemented!(),
-    };
 
     let operators = subgraph.operators().unwrap();
     let mut layers = TokenStream2::new();
@@ -125,23 +124,47 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
-    let output_shape: Vec<_> = output.shape().unwrap().iter().map(|e| e as usize).collect();
-    let output_signature = match output_shape.len() {
-        1 => quote!(microflow::buffer::Buffer2D<f32, 0, #(#output_shape),*>),
-        2 => quote!(microflow::buffer::Buffer2D<f32, #(#output_shape),*>),
-        4 => quote!(microflow::buffer::Buffer4D<f32, #(#output_shape),*>),
+    let mut output_shape: Vec<_> = output.shape().unwrap().iter().map(|e| e as usize).collect();
+    if output_shape.len() == 1 {
+        output_shape.insert(0, 1);
+    }
+    let output_type = match output.type_() {
+        TensorType::INT8 => quote!(i8),
+        TensorType::UINT8 => quote!(u8),
+        _ => unimplemented!(),
+    };
+    let output_tensor = match output_shape.len() {
+        2 => quote!(Tensor2D),
+        4 => quote!(Tensor4D),
+        _ => unimplemented!(),
+    };
+    let output_buffer = match output_shape.len() {
+        2 => quote!(Buffer2D),
+        4 => quote!(Buffer4D),
         _ => unimplemented!(),
     };
 
     let tokens = quote! {
         #item
         impl #ident {
-            pub fn predict(input: #input_signature) -> #output_signature {
-                let output = #input_quantization;
+            pub fn predict(input: microflow::buffer::#input_buffer<f32, #(#input_shape),*>) -> microflow::buffer::#output_buffer<f32, #(#output_shape),*> {
+                let input = microflow::tensor::#input_tensor::quantize(input, [#(#input_scale),*], [#(#input_zero_point),*]);
+                Self::predict_inner(input).dequantize()
+            }
+
+            pub fn predict_quantized(input: microflow::buffer::#input_buffer<#input_type, #(#input_shape),*>) -> microflow::buffer::#output_buffer<f32, #(#output_shape),*> {
+                let input = microflow::tensor::#input_tensor::new(input, [#(#input_scale),*], [#(#input_zero_point),*]);
+                Self::predict_inner(input).dequantize()
+            }
+
+            fn predict_inner(input: microflow::tensor::#input_tensor<#input_type, #(#input_shape),*, 1usize>) -> microflow::tensor::#output_tensor<#output_type, #(#output_shape),*, 1usize> {
                 #layers
-                output.dequantize()
+                input
             }
         }
     };
+
+    fs::write("target/microflow-expansion.rs", tokens.to_string()).ok();
+
     tokens.into()
 }

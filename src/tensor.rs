@@ -1,3 +1,4 @@
+use core::array;
 use core::fmt::Debug;
 
 use crate::buffer::{Buffer2D, Buffer4D};
@@ -82,6 +83,32 @@ impl<
         Self::new(
             Buffer2D::from_fn(|i, j| {
                 tensor.buffer[i][(j / (CHANS * COLS), j / CHANS % COLS)][j % CHANS]
+            }),
+            tensor.scale,
+            tensor.zero_point,
+        )
+    }
+}
+
+impl<
+        T: Quantized,
+        const ROWS: usize,
+        const COLS: usize,
+        const QUANTS: usize,
+        const OUTPUT_ROWS: usize,
+        const OUTPUT_COLS: usize,
+        const OUTPUT_CHANS: usize,
+    > From<Tensor2D<T, ROWS, COLS, QUANTS>>
+    for Tensor4D<T, ROWS, OUTPUT_ROWS, OUTPUT_COLS, OUTPUT_CHANS, QUANTS>
+{
+    fn from(tensor: Tensor2D<T, ROWS, COLS, QUANTS>) -> Self {
+        Self::new(
+            array::from_fn(|b| {
+                Buffer2D::from_fn(|i, j| {
+                    array::from_fn(|c| {
+                        tensor.buffer[(b, OUTPUT_CHANS * OUTPUT_COLS * i + OUTPUT_CHANS * j + c)]
+                    })
+                })
             }),
             tensor.scale,
             tensor.zero_point,
@@ -317,5 +344,16 @@ mod tests {
         );
         let tensor_2d: Tensor2D<i8, 2, 12, 1> = Tensor2D::from(tensor_4d);
         assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
+    }
+
+    #[test]
+    fn tensor_2d_to_tensor_4d() {
+        let tensor_2d = Tensor2D::new(
+            TENSOR_4D_TO_TENSOR_2D_BUFFER,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        let tensor_4d: Tensor4D<i8, 2, 2, 3, 2, 1> = Tensor4D::from(tensor_2d);
+        assert_eq!(tensor_4d.buffer, TENSOR_4D_BUFFER_QUANTIZED);
     }
 }
