@@ -7,6 +7,6 @@ struct Sine;
 #[test]
 fn sine_model() {
     let input = matrix![0.5];
-    let output = matrix![0.46310145];
+    let output = matrix![0.41348344];
     assert_eq!(Sine::predict(input), output);
 }

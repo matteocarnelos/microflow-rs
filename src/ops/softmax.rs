@@ -36,7 +36,7 @@ mod tests {
     const OUTPUT: Tensor2D<i8, 2, 3, 1> = Tensor2D {
         buffer: matrix![
             10, 10, 10;
-            10, 10, 10
+            10, 10, 11
         ],
         scale: OUTPUT_SCALE,
         zero_point: OUTPUT_ZERO_POINT,

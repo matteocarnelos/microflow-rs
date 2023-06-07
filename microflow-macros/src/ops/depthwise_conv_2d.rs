@@ -132,7 +132,7 @@ mod tests {
             },
             weights: TokenTensor4D {
                 buffer: TokenBuffer4D::from(vec![dmatrix![
-                    vec![3, 4],  vec![5, 6],   vec![7,  8];
+                    vec![3, 4],  vec![5,  6],  vec![7,  8];
                     vec![9, 10], vec![11, 12], vec![13, 14]
                 ]]),
                 shape: vec![1, 2, 3, 2],

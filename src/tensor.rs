@@ -221,12 +221,12 @@ mod tests {
     const TENSOR_2D_SCALE: [f32; 1] = [0.7];
     const TENSOR_2D_ZERO_POINT: [i8; 1] = [8];
     const TENSOR_2D_BUFFER_QUANTIZED: Buffer2D<i8, 2, 3> = matrix![
-        9,  10, 12;
-        13, 15, 16
+        9,  11, 12;
+        14, 15, 17
     ];
     const TENSOR_2D_BUFFER_DEQUANTIZED: Buffer2D<f32, 2, 3> = matrix![
-        0.7, 1.4, 2.8;
-        3.5, 4.9, 5.6
+        0.7, 2.1, 2.8;
+        4.2, 4.9, 6.2999997
     ];
 
     const TENSOR_4D_BUFFER: Buffer4D<f32, 2, 2, 3, 2> = [
