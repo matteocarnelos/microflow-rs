@@ -27,6 +27,7 @@ mod app {
         let x = 0.5;
         let y_predicted = Sine::predict(matrix![x])[0];
         let y_exact = sinf(x);
+        rprintln!();
         rprintln!("Predicted sin({}): {}", x, y_predicted);
         rprintln!("Exact sin({}): {}", x, y_exact);
         rprintln!("Error: {}", y_exact - y_predicted);

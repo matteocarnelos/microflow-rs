@@ -21,6 +21,7 @@ fn main() -> ! {
     hprintln!("Predicted sin({}): {}", x, y_predicted);
     hprintln!("Exact sin({}): {}", x, y_exact);
     hprintln!("Error: {}", y_exact - y_predicted);
+
     debug::exit(debug::EXIT_SUCCESS);
     loop {
         cortex_m::asm::nop();
