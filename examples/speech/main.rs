@@ -29,6 +29,7 @@ fn print_prediction(prediction: Buffer2D<f32, 1, 4>) {
 fn main() {
     let yes_predicted = Speech::predict_quantized(features::YES);
     let no_predicted = Speech::predict_quantized(features::NO);
+    println!();
     println!("Input sample: 'yes.wav'");
     print_prediction(yes_predicted);
     println!();

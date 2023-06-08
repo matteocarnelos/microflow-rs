@@ -25,6 +25,7 @@ fn print_prediction(prediction: Buffer2D<f32, 1, 2>) {
 fn main() {
     let person_predicted = PersonDetect::predict_quantized(features::PERSON);
     let no_person_predicted = PersonDetect::predict_quantized(features::NO_PERSON);
+    println!();
     println!("Input sample: 'person.bmp'");
     print_prediction(person_predicted);
     println!();
