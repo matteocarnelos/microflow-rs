@@ -27,7 +27,7 @@ pub fn depthwise_conv_2d<
     const OUTPUT_COLS: usize,
 >(
     input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
-    weights: Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
+    weights: &Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
     options: DepthwiseConv2DOptions,
@@ -96,7 +96,7 @@ mod tests {
 
     const INPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [1, 2], [3, 4],  [5, 6];
+            [1, 2], [3, 4],  [5,  6];
             [7, 8], [9, 10], [11, 12]
         ]],
         scale: [0.13],
@@ -143,7 +143,7 @@ mod tests {
         assert_eq!(
             depthwise_conv_2d(
                 INPUT,
-                WEIGHTS,
+                &WEIGHTS,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,
                 OPTIONS,

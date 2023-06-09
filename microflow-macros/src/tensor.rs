@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::mem::size_of;
 
 use flatbuffers::{ForwardsUOffset, Vector};
@@ -5,6 +6,7 @@ use nalgebra::DMatrix;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use simba::scalar::SupersetOf;
+use syn::{parse_str, Type};
 
 use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
 use crate::quantize::TokenQuantized;
@@ -58,9 +60,6 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         if shape.len() == 1 {
             shape.insert(0, 1);
         }
-        if shape.len() == 4 {
-            shape = vec![1, shape[1] * shape[2] * shape[3]]
-        }
         Self {
             buffer: TokenBuffer2D::new(),
             shape,
@@ -96,7 +95,15 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
                 .map(|e| T::from_le_bytes(e)),
         );
         token_tensor.buffer = TokenBuffer2D::from(matrix);
+        token_tensor.shape.swap(0, 1);
         token_tensor
+    }
+
+    pub fn type_tokens(&self) -> TokenStream2 {
+        let ty = parse_str::<Type>(type_name::<T>()).unwrap();
+        let shape = &self.shape;
+        let quants = self.scale.len();
+        quote!(microflow::tensor::Tensor2D<#ty, #(#shape),*, #quants>)
     }
 }
 
@@ -105,14 +112,15 @@ impl<T: TokenQuantized> ToTokens for TokenTensor2D<T> {
         let buffer = &self.buffer;
         let scale = &self.scale;
         let zero_point = &self.zero_point;
-        let output = quote! {
+
+        let ts = quote! {
             microflow::tensor::Tensor2D::new(
                 #buffer,
                 [#(#scale),*],
                 [#(#zero_point),*]
             )
         };
-        output.to_tokens(tokens);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -164,6 +172,13 @@ impl<T: TokenQuantized> TokenTensor4D<T> {
         t.buffer = TokenBuffer4D::from(data);
         t
     }
+
+    pub fn type_tokens(&self) -> TokenStream2 {
+        let ty = parse_str::<Type>(type_name::<T>()).unwrap();
+        let shape = &self.shape;
+        let quants = self.scale.len();
+        quote!(microflow::tensor::Tensor4D<#ty, #(#shape),*, #quants>)
+    }
 }
 
 impl<T: TokenQuantized> ToTokens for TokenTensor4D<T> {
@@ -171,14 +186,15 @@ impl<T: TokenQuantized> ToTokens for TokenTensor4D<T> {
         let buffer = &self.buffer;
         let scale = &self.scale;
         let zero_point = &self.zero_point;
-        let output = quote! {
+
+        let ts = quote! {
             microflow::tensor::Tensor4D::new(
                 #buffer,
                 [#(#scale),*],
                 [#(#zero_point),*]
             )
         };
-        output.to_tokens(tokens);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -187,6 +203,36 @@ mod tests {
     use nalgebra::dmatrix;
 
     use super::*;
+
+    fn setup_2d() -> TokenTensor2D<i8> {
+        TokenTensor2D {
+            buffer: TokenBuffer2D::from(dmatrix![
+                1, 2, 3;
+                4, 5, 6
+            ]),
+            shape: vec![2, 3],
+            scale: vec![0.7],
+            zero_point: vec![8],
+        }
+    }
+
+    fn setup_4d() -> TokenTensor4D<i8> {
+        TokenTensor4D {
+            buffer: TokenBuffer4D::from(vec![
+                dmatrix![
+                    vec![9,  10], vec![11, 12], vec![13, 14];
+                    vec![15, 16], vec![17, 18], vec![19, 20]
+                ],
+                dmatrix![
+                    vec![21, 22], vec![23, 24], vec![25, 26];
+                    vec![27, 28], vec![29, 30], vec![31, 32]
+                ],
+            ]),
+            shape: vec![2, 2, 3, 2],
+            scale: vec![0.33, 0.34],
+            zero_point: vec![35, 36],
+        }
+    }
 
     #[test]
     fn view_padding_to_tokens() {
@@ -198,16 +244,17 @@ mod tests {
     }
 
     #[test]
+    fn tensor_2d_type_tokens() {
+        let tensor = setup_2d();
+        assert_eq!(
+            tensor.type_tokens().to_string(),
+            quote!(microflow::tensor::Tensor2D<i8, 2usize, 3usize, 1usize>).to_string(),
+        )
+    }
+
+    #[test]
     fn tensor_2d_to_tokens() {
-        let tensor = TokenTensor2D {
-            buffer: TokenBuffer2D::<i8>::from(dmatrix![
-                1, 2, 3;
-                4, 5, 6
-            ]),
-            shape: vec![2, 3],
-            scale: vec![0.7],
-            zero_point: vec![8],
-        };
+        let tensor = setup_2d();
         let buffer = &tensor.buffer;
         assert_eq!(
             tensor.to_token_stream().to_string(),
@@ -223,30 +270,26 @@ mod tests {
     }
 
     #[test]
+    fn tensor_4d_type_tokens() {
+        let tensor = setup_4d();
+        assert_eq!(
+            tensor.type_tokens().to_string(),
+            quote!(microflow::tensor::Tensor4D<i8, 2usize, 2usize, 3usize, 2usize, 2usize>)
+                .to_string(),
+        )
+    }
+
+    #[test]
     fn tensor_4d_to_tokens() {
-        let tensor = TokenTensor4D {
-            buffer: TokenBuffer4D::<i8>::from(vec![
-                dmatrix![
-                    vec![1, 2], vec![3, 4],  vec![5,  6];
-                    vec![7, 8], vec![9, 10], vec![11, 12]
-                ],
-                dmatrix![
-                    vec![13, 14], vec![15, 16], vec![17, 18];
-                    vec![19, 20], vec![21, 22], vec![23, 24]
-                ],
-            ]),
-            shape: vec![2, 2, 3, 2],
-            scale: vec![0.25, 0.26],
-            zero_point: vec![27, 28],
-        };
+        let tensor = setup_4d();
         let buffer = &tensor.buffer;
         assert_eq!(
             tensor.to_token_stream().to_string(),
             quote! {
                 microflow::tensor::Tensor4D::new(
                     #buffer,
-                    [0.25f32, 0.26f32],
-                    [27i8, 28i8]
+                    [0.33f32, 0.34f32],
+                    [35i8, 36i8]
                 )
             }
             .to_string()

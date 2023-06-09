@@ -4,6 +4,7 @@
 use esp_backtrace as _;
 
 use esp_println::println;
+use hal::clock::CpuClock;
 use hal::{clock::ClockControl, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
 use microflow::buffer::Buffer2D;
 use microflow::model;
@@ -38,7 +39,7 @@ fn print_prediction(prediction: Buffer2D<f32, 1, 4>) {
 fn main() -> ! {
     let peripherals = Peripherals::take();
     let system = peripherals.DPORT.split();
-    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+    let clocks = ClockControl::configure(system.clock_control, CpuClock::Clock240MHz).freeze();
 
     let mut rtc = Rtc::new(peripherals.RTC_CNTL);
     let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);

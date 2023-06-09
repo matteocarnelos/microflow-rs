@@ -29,8 +29,9 @@ impl<T: ToTokens> ToTokens for TokenBuffer2D<T> {
             let iter = row.iter();
             rows.push(quote!(#(#iter),*));
         }
-        let output = quote!(nalgebra::matrix![#(#rows);*]);
-        output.to_tokens(tokens);
+
+        let ts = quote!(nalgebra::matrix![#(#rows);*]);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -68,8 +69,9 @@ impl<T: ToTokens> ToTokens for TokenBuffer4D<T> {
             }
             batches.push(quote!(nalgebra::matrix![#(#rows);*]));
         }
-        let output = quote!([#(#batches),*]);
-        output.to_tokens(tokens);
+
+        let ts = quote!([#(#batches),*]);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -86,6 +88,26 @@ mod tests {
 
     use super::*;
 
+    fn setup_2d() -> TokenBuffer2D<i8> {
+        TokenBuffer2D::from(dmatrix![
+            1, 2, 3;
+            4, 5, 6
+        ])
+    }
+
+    fn setup_4d() -> TokenBuffer4D<i8> {
+        TokenBuffer4D::from(vec![
+            dmatrix![
+                vec![7,  8],  vec![9,  10], vec![11, 12];
+                vec![13, 14], vec![15, 16], vec![17, 18]
+            ],
+            dmatrix![
+                vec![19, 20], vec![21, 22], vec![23, 24];
+                vec![25, 26], vec![27, 28], vec![29, 30]
+            ],
+        ])
+    }
+
     #[test]
     fn buffer_2d_new() {
         assert_eq!(TokenBuffer2D::<i8>::new().0, None);
@@ -99,10 +121,7 @@ mod tests {
 
     #[test]
     fn buffer_2d_to_tokens() {
-        let buffer = TokenBuffer2D::<i8>::from(dmatrix![
-            1, 2, 3;
-            4, 5, 6
-        ]);
+        let buffer = setup_2d();
         assert_eq!(
             buffer.to_token_stream().to_string(),
             quote! {
@@ -128,27 +147,18 @@ mod tests {
 
     #[test]
     fn buffer_4d_to_tokens() {
-        let buffer = TokenBuffer4D::<i8>::from(vec![
-            dmatrix![
-                vec![1, 2], vec![3, 4],  vec![5, 6];
-                vec![7, 8], vec![9, 10], vec![11, 12]
-            ],
-            dmatrix![
-                vec![13, 14], vec![15, 16], vec![17, 18];
-                vec![19, 20], vec![21, 22], vec![23, 24]
-            ],
-        ]);
+        let buffer = setup_4d();
         assert_eq!(
             buffer.to_token_stream().to_string(),
             quote! {
                 [
                     nalgebra::matrix![
-                        [1i8, 2i8], [3i8, 4i8],  [5i8,  6i8];
-                        [7i8, 8i8], [9i8, 10i8], [11i8, 12i8]
+                        [7i8,  8i8],  [9i8,  10i8], [11i8, 12i8];
+                        [13i8, 14i8], [15i8, 16i8], [17i8, 18i8]
                     ],
                     nalgebra::matrix![
-                        [13i8, 14i8], [15i8, 16i8], [17i8, 18i8];
-                        [19i8, 20i8], [21i8, 22i8], [23i8, 24i8]
+                        [19i8, 20i8], [21i8, 22i8], [23i8, 24i8];
+                        [25i8, 26i8], [27i8, 28i8], [29i8, 30i8]
                     ]
                 ]
             }

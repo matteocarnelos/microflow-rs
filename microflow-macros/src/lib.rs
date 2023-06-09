@@ -102,7 +102,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let operators = subgraph.operators().unwrap();
     let mut layers = TokenStream2::new();
-    for operator in operators {
+    for (index, operator) in operators.iter().enumerate() {
         let layer: Box<dyn ToTokens> = match BuiltinOperator(
             model
                 .operator_codes()
@@ -110,14 +110,16 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
                 .get(operator.opcode_index() as usize)
                 .deprecated_builtin_code() as i32,
         ) {
-            BuiltinOperator::FULLY_CONNECTED => fully_connected::parse(operator, tensors, buffers),
-            BuiltinOperator::DEPTHWISE_CONV_2D => {
-                depthwise_conv_2d::parse(operator, tensors, buffers)
+            BuiltinOperator::FULLY_CONNECTED => {
+                fully_connected::parse(operator, tensors, buffers, index)
             }
-            BuiltinOperator::CONV_2D => conv_2d::parse(operator, tensors, buffers),
+            BuiltinOperator::DEPTHWISE_CONV_2D => {
+                depthwise_conv_2d::parse(operator, tensors, buffers, index)
+            }
+            BuiltinOperator::CONV_2D => conv_2d::parse(operator, tensors, buffers, index),
             BuiltinOperator::AVERAGE_POOL_2D => average_pool_2d::parse(operator, tensors),
             BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
-            BuiltinOperator::RESHAPE => Box::new(TokenStream2::new()),
+            BuiltinOperator::RESHAPE => Box::new(reshape::parse(operator, tensors)),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
         layer.to_tokens(&mut layers)
@@ -144,7 +146,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         _ => unimplemented!(),
     };
 
-    let tokens = quote! {
+    let ts = quote! {
         #item
         impl #ident {
             pub fn predict(input: microflow::buffer::#input_buffer<f32, #(#input_shape),*>) -> microflow::buffer::#output_buffer<f32, #(#output_shape),*> {
@@ -164,7 +166,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    fs::write("target/microflow-expansion.rs", tokens.to_string()).ok();
+    fs::write("target/microflow-expansion.rs", ts.to_string()).ok();
 
-    tokens.into()
+    ts.into()
 }

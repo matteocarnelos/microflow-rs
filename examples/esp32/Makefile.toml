@@ -5,3 +5,6 @@ dependencies = [
     "clippy",
     "check-format"
 ]
+
+[tasks.examples-compile]
+args = ["build", "--examples", "--release"]

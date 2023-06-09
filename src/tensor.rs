@@ -40,7 +40,7 @@ pub struct Tensor4D<
 impl<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize>
     Tensor2D<T, ROWS, COLS, QUANTS>
 {
-    pub fn new(
+    pub const fn new(
         buffer: Buffer2D<T, ROWS, COLS>,
         scale: [f32; QUANTS],
         zero_point: [T; QUANTS],
@@ -125,7 +125,7 @@ impl<
         const QUANTS: usize,
     > Tensor4D<T, BATCHES, ROWS, COLS, CHANS, QUANTS>
 {
-    pub fn new(
+    pub const fn new(
         buffer: Buffer4D<T, BATCHES, ROWS, COLS, CHANS>,
         scale: [f32; QUANTS],
         zero_point: [T; QUANTS],
@@ -247,13 +247,13 @@ mod tests {
             [54, 58], [62, 66], [70, 74]
         ],
         matrix![
-            [78, 82],   [86, 90],   [94, 98];
+            [78,  82],  [86,  90],  [94,  98];
             [102, 106], [110, 114], [118, 122]
         ],
     ];
     const TENSOR_4D_VIEW_BUFFER: Buffer2D<[i8; 2], 2, 3> = matrix![
-        [54, 58], [62, 66],  [70, 74];
-        [0, 0],   [0, 0],    [0, 0]
+        [54, 58], [62, 66], [70, 74];
+        [0,  0],  [0,  0],  [0,  0]
     ];
     const TENSOR_4D_VIEW_MASK: Buffer2D<bool, 2, 3> = matrix![
         true,  true,  true;
@@ -267,7 +267,7 @@ mod tests {
     ];
 
     #[test]
-    fn new_tensor_2d() {
+    fn tensor_2d_new() {
         let tensor = Tensor2D::new(
             TENSOR_2D_BUFFER_QUANTIZED,
             TENSOR_2D_SCALE,
@@ -279,13 +279,13 @@ mod tests {
     }
 
     #[test]
-    fn quantize_tensor_2d() {
+    fn tensor_2d_quantize() {
         let tensor = Tensor2D::quantize(TENSOR_2D_BUFFER, TENSOR_2D_SCALE, TENSOR_2D_ZERO_POINT);
         assert_eq!(tensor.buffer, TENSOR_2D_BUFFER_QUANTIZED);
     }
 
     #[test]
-    fn dequantize_tensor_2d() {
+    fn tensor_2d_dequantize() {
         let tensor = Tensor2D::new(
             TENSOR_2D_BUFFER_QUANTIZED,
             TENSOR_2D_SCALE,
@@ -295,7 +295,18 @@ mod tests {
     }
 
     #[test]
-    fn new_tensor_4d() {
+    fn tensor_2d_to_tensor_4d() {
+        let tensor_2d = Tensor2D::new(
+            TENSOR_4D_TO_TENSOR_2D_BUFFER,
+            TENSOR_4D_SCALE,
+            TENSOR_4D_ZERO_POINT,
+        );
+        let tensor_4d: Tensor4D<i8, 2, 2, 3, 2, 1> = Tensor4D::from(tensor_2d);
+        assert_eq!(tensor_4d.buffer, TENSOR_4D_BUFFER_QUANTIZED);
+    }
+
+    #[test]
+    fn tensor_4d_new() {
         let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
@@ -307,13 +318,13 @@ mod tests {
     }
 
     #[test]
-    fn quantize_tensor_4d() {
+    fn tensor_4d_quantize() {
         let tensor = Tensor4D::quantize(TENSOR_4D_BUFFER, TENSOR_4D_SCALE, TENSOR_4D_ZERO_POINT);
         assert_eq!(tensor.buffer, TENSOR_4D_BUFFER_QUANTIZED);
     }
 
     #[test]
-    fn dequantize_tensor_4d() {
+    fn tensor_4d_dequantize() {
         let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
@@ -323,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn view_tensor_4d() {
+    fn tensor_4d_view() {
         let tensor = Tensor4D::new(
             TENSOR_4D_BUFFER_QUANTIZED,
             TENSOR_4D_SCALE,
@@ -344,16 +355,5 @@ mod tests {
         );
         let tensor_2d: Tensor2D<i8, 2, 12, 1> = Tensor2D::from(tensor_4d);
         assert_eq!(tensor_2d.buffer, TENSOR_4D_TO_TENSOR_2D_BUFFER);
-    }
-
-    #[test]
-    fn tensor_2d_to_tensor_4d() {
-        let tensor_2d = Tensor2D::new(
-            TENSOR_4D_TO_TENSOR_2D_BUFFER,
-            TENSOR_4D_SCALE,
-            TENSOR_4D_ZERO_POINT,
-        );
-        let tensor_4d: Tensor4D<i8, 2, 2, 3, 2, 1> = Tensor4D::from(tensor_2d);
-        assert_eq!(tensor_4d.buffer, TENSOR_4D_BUFFER_QUANTIZED);
     }
 }

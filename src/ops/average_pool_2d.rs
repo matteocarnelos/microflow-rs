@@ -59,7 +59,7 @@ mod tests {
 
     const INPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [1, 2], [3, 4],  [5, 6];
+            [1, 2], [3, 4],  [5,  6];
             [7, 8], [9, 10], [11, 12]
         ]],
         scale: [0.13],
@@ -76,7 +76,7 @@ mod tests {
     const CONSTANTS: (f32, f32) = (0.866_666_7, 3.866_666_6);
     const OUTPUT: Tensor4D<i8, 1, 2, 3, 2, 1> = Tensor4D {
         buffer: [matrix![
-            [8, 9],   [9, 10],   [10, 11];
+            [8,  9],  [9,  10], [10, 11];
             [11, 12], [12, 13], [13, 13]
         ]],
         scale: [0.15],

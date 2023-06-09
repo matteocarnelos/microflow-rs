@@ -17,7 +17,7 @@ pub fn fully_connected<
     const WEIGHTS_COLS: usize,
 >(
     input: Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
-    weights: Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+    weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
     options: FullyConnectedOptions,
@@ -121,7 +121,7 @@ mod tests {
         assert_eq!(
             fully_connected(
                 INPUT,
-                WEIGHTS,
+                &WEIGHTS,
                 OUTPUT_SCALE,
                 OUTPUT_ZERO_POINT,
                 OPTIONS,

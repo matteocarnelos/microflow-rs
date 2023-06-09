@@ -1,5 +1,5 @@
 use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
-use proc_macro2::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
 #[derive(Copy, Clone)]
@@ -10,13 +10,13 @@ pub(crate) enum TokenFusedActivation {
 }
 
 impl ToTokens for TokenFusedActivation {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let output = match self {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let ts = match self {
             TokenFusedActivation::None => quote!(microflow::activation::FusedActivation::None),
             TokenFusedActivation::Relu => quote!(microflow::activation::FusedActivation::Relu),
             TokenFusedActivation::Relu6 => quote!(microflow::activation::FusedActivation::Relu6),
         };
-        output.to_tokens(tokens);
+        ts.to_tokens(tokens);
     }
 }
 

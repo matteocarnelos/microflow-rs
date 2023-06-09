@@ -1,18 +1,10 @@
 [tasks.default]
 clear = true
-install_crate = "flip-link"
 dependencies = [
-    "add-target",
-    "install-flip-link",
     "examples-compile",
     "clippy",
     "check-format",
 ]
 
-[tasks.install-flip-link]
-command = "cargo"
-args = ["install", "flip-link"]
-
-[tasks.add-target]
-command = "rustup"
-args = ["target", "add", "thumbv7em-none-eabihf"]
+[tasks.examples-compile]
+args = ["build", "--examples", "--release"]

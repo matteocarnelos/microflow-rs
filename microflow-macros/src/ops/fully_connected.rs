@@ -1,7 +1,7 @@
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::{convert_ref, DMatrix};
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use simba::scalar::SupersetOf;
 
 use crate::activation::TokenFusedActivation;
@@ -11,23 +11,29 @@ use crate::tensor::TokenTensor2D;
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 
 pub(crate) struct TokenFullyConnected<T: TokenQuantized> {
-    pub(crate) input: TokenTensor2D<T>,
     pub(crate) weights: TokenTensor2D<T>,
     pub(crate) output: TokenTensor2D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
     pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32),
+    pub(crate) index: usize,
+    pub(crate) reshape: bool,
 }
 
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
     buffers: Vector<ForwardsUOffset<Buffer>>,
+    index: usize,
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenFullyConnected::<i8>::new(operator, tensors, buffers)),
-        TensorType::UINT8 => Box::new(TokenFullyConnected::<u8>::new(operator, tensors, buffers)),
+        TensorType::INT8 => Box::new(TokenFullyConnected::<i8>::new(
+            operator, tensors, buffers, index,
+        )),
+        TensorType::UINT8 => Box::new(TokenFullyConnected::<u8>::new(
+            operator, tensors, buffers, index,
+        )),
         _ => unimplemented!(),
     }
 }
@@ -37,6 +43,7 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
         buffers: Vector<ForwardsUOffset<Buffer>>,
+        index: usize,
     ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor2D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -52,11 +59,12 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
             .unwrap();
         let constants = Self::preprocess(&input, &weights, &biases, &output);
         Self {
-            input,
             weights,
             output,
             fused_activation: options.fused_activation_function().into(),
+            reshape: input.shape.len() != 2,
             constants,
+            index,
         }
     }
 
@@ -88,28 +96,35 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
 
 impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let input_shape = &self.input.shape;
-        let output_shape = &self.output.shape;
+        let reshape = if self.reshape {
+            quote!(.into())
+        } else {
+            quote!()
+        };
+        let weights_ident = format_ident!("weights_{}", self.index);
+        let weights_type = self.weights.type_tokens();
         let weights = &self.weights;
+        let output_shape = &self.output.shape;
         let output_scale = self.output.scale[0];
         let output_zero_point = self.output.zero_point[0];
         let fused_activation = self.fused_activation;
         let (constants_0, constants_1, constants_2, constants_3) = &self.constants;
 
-        let output = quote! {
-            let input: microflow::tensor::Tensor2D<_, #(#input_shape),*, 1usize> = input.into();
-            let input: microflow::tensor::Tensor2D<_, #(#output_shape),*, 1usize> = microflow::ops::fully_connected(
-                input,
-                #weights,
-                [#output_scale],
-                [#output_zero_point],
-                microflow::ops::FullyConnectedOptions {
-                    fused_activation: #fused_activation,
-                },
-                (#constants_0, #constants_1, #constants_2, #constants_3)
+        let ts = quote! {
+            const #weights_ident: #weights_type = #weights;
+            let input: microflow::tensor::Tensor2D<_, #(#output_shape),*, 1usize> =
+                microflow::ops::fully_connected(
+                    input #reshape,
+                    &#weights_ident,
+                    [#output_scale],
+                    [#output_zero_point],
+                    microflow::ops::FullyConnectedOptions {
+                        fused_activation: #fused_activation,
+                    },
+                    (#constants_0, #constants_1, #constants_2, #constants_3)
             );
         };
-        output.to_tokens(tokens);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -121,40 +136,42 @@ mod tests {
 
     fn setup() -> TokenFullyConnected<i8> {
         TokenFullyConnected {
-            input: TokenTensor2D {
-                buffer: TokenBuffer2D::new(),
-                shape: vec![1, 2],
-                scale: vec![0.1],
-                zero_point: vec![2],
-            },
             weights: TokenTensor2D {
                 buffer: TokenBuffer2D::from(dmatrix![
-                    3, 4, 5;
-                    6, 7, 8
+                    1, 2, 3;
+                    4, 5, 6
                 ]),
                 shape: vec![2, 3],
-                scale: vec![0.9],
-                zero_point: vec![10],
+                scale: vec![0.7],
+                zero_point: vec![8],
             },
             output: TokenTensor2D {
                 buffer: TokenBuffer2D::new(),
                 shape: vec![1, 3],
-                scale: vec![0.11],
-                zero_point: vec![12],
+                scale: vec![0.9],
+                zero_point: vec![10],
             },
             fused_activation: TokenFusedActivation::Relu,
             constants: (
-                TokenBuffer2D::from(dmatrix![13., 14.]),
-                15.,
-                TokenBuffer2D::from(dmatrix![16, 17]),
-                18,
+                TokenBuffer2D::from(dmatrix![11., 12.]),
+                13.,
+                TokenBuffer2D::from(dmatrix![14, 15]),
+                16,
             ),
+            index: 0,
+            reshape: false,
         }
     }
 
     #[test]
     fn fully_connected_preprocess() {
         let layer = setup();
+        let input = TokenTensor2D {
+            buffer: TokenBuffer2D::new(),
+            shape: vec![1, 2],
+            scale: vec![0.17],
+            zero_point: vec![18],
+        };
         let biases = TokenTensor2D {
             buffer: TokenBuffer2D::from(dmatrix![
                 19;
@@ -166,11 +183,14 @@ mod tests {
             zero_point: vec![23],
         };
         let constants =
-            TokenFullyConnected::preprocess(&layer.input, &layer.weights, &biases, &layer.output);
-        assert_eq!(constants.0 .0, Some(dmatrix![-8.0; -6.0; -4.0]));
-        assert_eq!(constants.1, 0.8181818);
-        assert_eq!(constants.2 .0, Some(dmatrix![18, 22, 26]));
-        assert_eq!(constants.3, 40);
+            TokenFullyConnected::preprocess(&input, &layer.weights, &biases, &layer.output);
+        assert_eq!(
+            constants.0 .0,
+            Some(dmatrix![-0.9777778; -0.73333335; -0.4888889])
+        );
+        assert_eq!(constants.1, 0.13222224);
+        assert_eq!(constants.2 .0, Some(dmatrix![90, 126, 162]));
+        assert_eq!(constants.3, 288);
     }
 
     #[test]
@@ -183,16 +203,17 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let input: microflow::tensor::Tensor2D<_, 1usize, 2usize, 1usize> = input.into();
-                let input: microflow::tensor::Tensor2D<_, 1usize, 3usize, 1usize> = microflow::ops::fully_connected(
-                    input,
-                    #weights,
-                    [0.11f32],
-                    [12i8],
-                    microflow::ops::FullyConnectedOptions {
-                        fused_activation: #fused_activation,
-                    },
-                    (#constants_0, 15f32, #constants_2, 18i32)
+                const weights_0: microflow::tensor::Tensor2D<i8, 2usize, 3usize, 1usize> = #weights;
+                let input: microflow::tensor::Tensor2D<_, 1usize, 3usize, 1usize> =
+                    microflow::ops::fully_connected(
+                        input,
+                        &weights_0,
+                        [0.9f32],
+                        [10i8],
+                        microflow::ops::FullyConnectedOptions {
+                            fused_activation: #fused_activation,
+                        },
+                        (#constants_0, 13f32, #constants_2, 16i32)
                 );
             }
             .to_string()

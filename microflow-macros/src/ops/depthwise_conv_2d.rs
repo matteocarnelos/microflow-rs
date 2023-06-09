@@ -5,29 +5,34 @@ use crate::tensor::{TokenTensor2D, TokenTensor4D, TokenViewPadding};
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::DMatrix;
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote, ToTokens};
 
 pub(crate) struct TokenDepthwiseConv2D<T: TokenQuantized> {
-    pub(crate) input: TokenTensor4D<T>,
     pub(crate) weights: TokenTensor4D<T>,
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
     pub(crate) view_padding: TokenViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (TokenBuffer2D<f32>, TokenBuffer2D<f32>),
+    pub(crate) index: usize,
 }
 
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
     buffers: Vector<ForwardsUOffset<Buffer>>,
+    index: usize,
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenDepthwiseConv2D::<i8>::new(operator, tensors, buffers)),
-        TensorType::UINT8 => Box::new(TokenDepthwiseConv2D::<u8>::new(operator, tensors, buffers)),
+        TensorType::INT8 => Box::new(TokenDepthwiseConv2D::<i8>::new(
+            operator, tensors, buffers, index,
+        )),
+        TensorType::UINT8 => Box::new(TokenDepthwiseConv2D::<u8>::new(
+            operator, tensors, buffers, index,
+        )),
         _ => unimplemented!(),
     }
 }
@@ -37,6 +42,7 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
         buffers: Vector<ForwardsUOffset<Buffer>>,
+        index: usize,
     ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -52,13 +58,13 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
             .unwrap();
         let constants = Self::preprocess(&input, &weights, &biases, &output);
         Self {
-            input,
             weights,
             output,
             fused_activation: options.fused_activation_function().into(),
             view_padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
             constants,
+            index,
         }
     }
 
@@ -86,10 +92,11 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
 }
 
 impl<T: TokenQuantized> ToTokens for TokenDepthwiseConv2D<T> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let input_shape = &self.input.shape;
-        let output_shape = &self.output.shape;
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let weights_ident = format_ident!("weights_{}", self.index);
+        let weights_type = self.weights.type_tokens();
         let weights = &self.weights;
+        let output_shape = &self.output.shape;
         let output_scale = &self.output.scale;
         let output_zero_point = &self.output.zero_point;
         let fused_activation = self.fused_activation;
@@ -97,22 +104,23 @@ impl<T: TokenQuantized> ToTokens for TokenDepthwiseConv2D<T> {
         let (strides_0, strides_1) = self.strides;
         let (constants_0, constants_1) = &self.constants;
 
-        let output = quote! {
-            let input: microflow::tensor::Tensor4D<_, #(#input_shape),*, 1usize> = input.into();
-            let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> = microflow::ops::depthwise_conv_2d(
-                input,
-                #weights,
-                [#(#output_scale),*],
-                [#(#output_zero_point),*],
-                microflow::ops::DepthwiseConv2DOptions {
-                    fused_activation: #fused_activation,
-                    view_padding: #view_padding,
-                    strides: (#strides_0, #strides_1),
-                },
-                (#constants_0, #constants_1)
+        let ts = quote! {
+            const #weights_ident: #weights_type = #weights;
+            let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> =
+                microflow::ops::depthwise_conv_2d(
+                    input,
+                    &#weights_ident,
+                    [#(#output_scale),*],
+                    [#(#output_zero_point),*],
+                    microflow::ops::DepthwiseConv2DOptions {
+                        fused_activation: #fused_activation,
+                        view_padding: #view_padding,
+                        strides: (#strides_0, #strides_1),
+                    },
+                    (#constants_0, #constants_1)
             );
         };
-        output.to_tokens(tokens);
+        ts.to_tokens(tokens);
     }
 }
 
@@ -124,40 +132,41 @@ mod tests {
 
     fn setup() -> TokenDepthwiseConv2D<i8> {
         TokenDepthwiseConv2D {
-            input: TokenTensor4D {
-                buffer: TokenBuffer4D::new(),
-                shape: vec![1, 2, 3, 2],
-                scale: vec![0.1],
-                zero_point: vec![2],
-            },
             weights: TokenTensor4D {
                 buffer: TokenBuffer4D::from(vec![dmatrix![
-                    vec![3, 4],  vec![5,  6],  vec![7,  8];
-                    vec![9, 10], vec![11, 12], vec![13, 14]
+                    vec![1, 2], vec![3,  4],  vec![5,  6];
+                    vec![7, 8], vec![9,  10], vec![11, 12]
                 ]]),
                 shape: vec![1, 2, 3, 2],
-                scale: vec![0.15, 0.16],
-                zero_point: vec![17, 18],
+                scale: vec![0.13, 0.14],
+                zero_point: vec![15, 16],
             },
             output: TokenTensor4D {
                 buffer: TokenBuffer4D::new(),
                 shape: vec![1, 2, 3, 2],
-                scale: vec![0.19],
-                zero_point: vec![20],
+                scale: vec![0.17],
+                zero_point: vec![18],
             },
             fused_activation: TokenFusedActivation::Relu6,
             view_padding: TokenViewPadding::Same,
             strides: (1, 1),
             constants: (
+                TokenBuffer2D::from(dmatrix![19., 20.]),
                 TokenBuffer2D::from(dmatrix![21., 22.]),
-                TokenBuffer2D::from(dmatrix![23., 24.]),
             ),
+            index: 0,
         }
     }
 
     #[test]
     fn depthwise_conv_2d_preprocess() {
         let layer = setup();
+        let input = TokenTensor4D {
+            buffer: TokenBuffer4D::new(),
+            shape: vec![1, 2, 3, 2],
+            scale: vec![0.23],
+            zero_point: vec![24],
+        };
         let biases = TokenTensor2D {
             buffer: TokenBuffer2D::from(dmatrix![
                 25;
@@ -168,9 +177,9 @@ mod tests {
             zero_point: vec![29, 30],
         };
         let constants =
-            TokenDepthwiseConv2D::preprocess(&layer.input, &layer.weights, &biases, &layer.output);
-        assert_eq!(constants.0 .0, Some(dmatrix![-5.684211; -5.894737]));
-        assert_eq!(constants.1 .0, Some(dmatrix![0.07894737; 0.08421053]))
+            TokenDepthwiseConv2D::preprocess(&input, &layer.weights, &biases, &layer.output);
+        assert_eq!(constants.0 .0, Some(dmatrix![-6.3529415; -6.5882354]));
+        assert_eq!(constants.1 .0, Some(dmatrix![0.17588235; 0.18941177]))
     }
 
     #[test]
@@ -183,18 +192,19 @@ mod tests {
         assert_eq!(
             layer.to_token_stream().to_string(),
             quote! {
-                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = input.into();
-                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> = microflow::ops::depthwise_conv_2d(
-                    input,
-                    #weights,
-                    [0.19f32],
-                    [20i8],
-                    microflow::ops::DepthwiseConv2DOptions {
-                        fused_activation: #fused_activation,
-                        view_padding: #view_padding,
-                        strides: (1usize, 1usize),
-                    },
-                    (#constants_0, #constants_1)
+                const weights_0: microflow::tensor::Tensor4D<i8, 1usize, 2usize, 3usize, 2usize, 2usize> = #weights;
+                let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> =
+                    microflow::ops::depthwise_conv_2d(
+                        input,
+                        &weights_0,
+                        [0.17f32],
+                        [18i8],
+                        microflow::ops::DepthwiseConv2DOptions {
+                            fused_activation: #fused_activation,
+                            view_padding: #view_padding,
+                            strides: (1usize, 1usize),
+                        },
+                        (#constants_0, #constants_1)
                 );
             }.to_string()
         );
