@@ -1,18 +1,17 @@
-#![feature(test)]
-
-extern crate test;
-
+use criterion::{criterion_group, criterion_main, Criterion};
 use microflow::buffer::Buffer2D;
 use microflow_macros::model;
-use test::Bencher;
 
 #[model("models/person_detect.tflite")]
 struct PersonDetect;
 
-#[bench]
-fn person_detect_model(b: &mut Bencher) {
+fn person_detect_model(c: &mut Criterion) {
     let input = [Buffer2D::from_element([0.5])];
-    b.iter(|| {
-        PersonDetect::predict(input);
+
+    c.bench_function("person_detect_model", |b| {
+        b.iter(|| PersonDetect::predict(input))
     });
 }
+
+criterion_group!(benches, person_detect_model);
+criterion_main!(benches);

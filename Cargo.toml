@@ -11,6 +11,19 @@ libm = "0.2"
 
 [dev-dependencies]
 csv = "1.2"
+criterion = "0.5"
+
+[[bench]]
+name = "sine"
+harness = false
+
+[[bench]]
+name = "speech"
+harness = false
+
+[[bench]]
+name = "person_detect"
+harness = false
 
 [workspace]
 members = ["microflow-macros"]
