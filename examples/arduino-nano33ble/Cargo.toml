@@ -1,5 +1,5 @@
 [package]
-name = "examples-arduino-nano-33-ble"
+name = "examples-arduino-nano33ble"
 version = "0.0.0"
 edition = "2021"
 
