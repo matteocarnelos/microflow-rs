@@ -1,9 +1,10 @@
 #![no_std]
 #![no_main]
 
+use cortex_m::asm::nop;
 use cortex_m_rt::entry;
-use cortex_m_semihosting::{debug, hprintln};
-
+use cortex_m_semihosting::debug::{exit, EXIT_SUCCESS};
+use cortex_m_semihosting::hprintln;
 use microflow::buffer::Buffer2D;
 use microflow::model;
 use panic_halt as _;
@@ -45,8 +46,8 @@ fn main() -> ! {
     hprintln!("Input sample: 'no.wav'");
     print_prediction(no_predicted);
 
-    debug::exit(debug::EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
     loop {
-        cortex_m::asm::nop();
+        nop()
     }
 }

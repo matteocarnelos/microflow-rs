@@ -1,0 +1,16 @@
+[package]
+name = "examples-arduino-nano-33-ble"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+panic-halt = "0.2"
+hal = { package = "nrf52840-hal", version = "0.16", features = ["rt"] }
+microflow = { path = "../.." }
+nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
+libm = "0.2"
+
+[profile.release]
+lto = true

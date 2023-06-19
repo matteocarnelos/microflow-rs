@@ -9,7 +9,8 @@ alias = "microflow"
 
 [tasks.all]
 dependencies = [
-    "examples-arduino",
+    "examples-arduino-nano-33-ble",
+    "examples-arduino-uno",
     "examples-atsamx7x",
     "examples-esp32",
     "examples-qemu",
@@ -27,8 +28,13 @@ dependencies = [
     "docs",
 ]
 
-[tasks.examples-arduino]
-cwd = "examples/arduino"
+[tasks.examples-arduino-nano-33-ble]
+cwd = "examples/arduino-nano-33-ble"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-arduino-uno]
+cwd = "examples/arduino-uno"
 command = "cargo"
 args = ["make"]
 

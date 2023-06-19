@@ -1,0 +1,71 @@
+#![no_std]
+#![no_main]
+
+use core::fmt::Write;
+use cortex_m::asm::nop;
+use cortex_m_rt::entry;
+use hal::gpio::Level;
+use hal::uarte::{Baudrate, Parity};
+use hal::{gpio, uarte, Clocks, Uarte};
+use microflow::buffer::Buffer2D;
+use microflow::model;
+use panic_halt as _;
+
+#[path = "../../../features/person_detect.rs"]
+mod features;
+
+#[model("../../models/person_detect.tflite")]
+struct PersonDetect;
+
+fn print_prediction(serial: &mut impl Write, prediction: Buffer2D<f32, 1, 2>) {
+    writeln!(
+        serial,
+        "Prediction: {:.1}% no person, {:.1}% person",
+        prediction[0] * 100.,
+        prediction[1] * 100.,
+    )
+    .unwrap();
+    writeln!(
+        serial,
+        "Outcome: {}",
+        match prediction.iamax_full().1 {
+            0 => "NO PERSON",
+            1 => "PERSON",
+            _ => unreachable!(),
+        }
+    )
+    .unwrap();
+}
+
+#[entry]
+fn main() -> ! {
+    let p = hal::pac::Peripherals::take().unwrap();
+    let _clocks = Clocks::new(p.CLOCK).enable_ext_hfosc();
+    let port1 = gpio::p1::Parts::new(p.P1);
+
+    let mut serial = Uarte::new(
+        p.UARTE0,
+        uarte::Pins {
+            rxd: port1.p1_10.into_floating_input().degrade(),
+            txd: port1.p1_03.into_push_pull_output(Level::High).degrade(),
+            cts: None,
+            rts: None,
+        },
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+
+    let person_predicted = PersonDetect::predict_quantized(features::PERSON);
+    writeln!(serial).unwrap();
+    writeln!(serial, "Input sample: 'person.bmp'").unwrap();
+    print_prediction(&mut serial, person_predicted);
+
+    let no_person_predicted = PersonDetect::predict_quantized(features::NO_PERSON);
+    writeln!(serial).unwrap();
+    writeln!(serial, "Input sample: 'no_person.bmp'").unwrap();
+    print_prediction(&mut serial, no_person_predicted);
+
+    loop {
+        nop();
+    }
+}

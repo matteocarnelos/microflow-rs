@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use avr_device::asm::nop;
 use hal::prelude::*;
 use libm::sinf;
 use microflow::model;
@@ -23,6 +24,7 @@ fn main() -> ! {
     let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     let x_display = uFmt_f32::One(x);
+    uwriteln!(&mut serial, "").void_unwrap();
     uwriteln!(
         &mut serial,
         "Predicted sin({}): {}",
@@ -45,6 +47,6 @@ fn main() -> ! {
     .void_unwrap();
 
     loop {
-        avr_device::asm::nop();
+        nop();
     }
 }

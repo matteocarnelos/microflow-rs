@@ -1,8 +1,10 @@
 #![no_std]
 #![no_main]
 
+use cortex_m::asm::nop;
 use cortex_m_rt::entry;
-use cortex_m_semihosting::{debug, hprintln};
+use cortex_m_semihosting::debug::{exit, EXIT_SUCCESS};
+use cortex_m_semihosting::hprintln;
 use libm::sinf;
 use nalgebra::matrix;
 
@@ -22,8 +24,8 @@ fn main() -> ! {
     hprintln!("Exact sin({}): {}", x, y_exact);
     hprintln!("Error: {}", y_exact - y_predicted);
 
-    debug::exit(debug::EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
     loop {
-        cortex_m::asm::nop();
+        nop()
     }
 }
