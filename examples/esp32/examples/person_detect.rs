@@ -71,5 +71,22 @@ fn main() -> ! {
     print_prediction(no_person_predicted);
     println!("Execution time: {} us", end - start);
 
-    loop {}
+    println!(" ");
+    println!("--- Benchmark ---");
+
+    let mut benchmark_done = false;
+
+    loop {
+        if benchmark_done {
+            continue;
+        }
+        for i in 1..101 {
+            let start = rtc.get_time_us();
+            let _ = PersonDetect::predict_quantized(features::PERSON);
+            let end = rtc.get_time_us();
+            println!("{},{:.0}", i, end - start);
+        }
+        println!("-----------------");
+        benchmark_done = true;
+    }
 }

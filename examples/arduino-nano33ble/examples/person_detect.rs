@@ -2,14 +2,15 @@
 #![no_main]
 
 use core::fmt::Write;
-use cortex_m::asm::nop;
 use cortex_m_rt::entry;
 use hal::gpio::Level;
 use hal::uarte::{Baudrate, Parity};
-use hal::{gpio, uarte, Clocks, Uarte};
+use hal::{gpio, uarte, Clocks, Rtc, Uarte};
 use microflow::buffer::Buffer2D;
 use microflow::model;
 use panic_halt as _;
+
+const RTC_FREQ_MHZ: f32 = 0.032_768;
 
 #[path = "../../../features/person_detect.rs"]
 mod features;
@@ -42,6 +43,8 @@ fn main() -> ! {
     let p = hal::pac::Peripherals::take().unwrap();
     let _clocks = Clocks::new(p.CLOCK).enable_ext_hfosc();
     let port1 = gpio::p1::Parts::new(p.P1);
+    let rtc = Rtc::new(p.RTC0, 0).unwrap();
+    rtc.enable_counter();
 
     let mut serial = Uarte::new(
         p.UARTE0,
@@ -55,17 +58,48 @@ fn main() -> ! {
         Baudrate::BAUD115200,
     );
 
+    let start = rtc.get_counter();
     let person_predicted = PersonDetect::predict_quantized(features::PERSON);
+    let end = rtc.get_counter();
     writeln!(serial).unwrap();
     writeln!(serial, "Input sample: 'person.bmp'").unwrap();
     print_prediction(&mut serial, person_predicted);
+    writeln!(
+        serial,
+        "Execution time: {:.0} us",
+        (end - start) as f32 / RTC_FREQ_MHZ
+    )
+    .unwrap();
 
+    let start = rtc.get_counter();
     let no_person_predicted = PersonDetect::predict_quantized(features::NO_PERSON);
+    let end = rtc.get_counter();
     writeln!(serial).unwrap();
     writeln!(serial, "Input sample: 'no_person.bmp'").unwrap();
     print_prediction(&mut serial, no_person_predicted);
+    writeln!(
+        serial,
+        "Execution time: {:.0} us",
+        (end - start) as f32 / RTC_FREQ_MHZ
+    )
+    .unwrap();
+
+    writeln!(serial).unwrap();
+    writeln!(serial, "--- Benchmark ---").unwrap();
+
+    let mut benchmark_done = false;
 
     loop {
-        nop();
+        if benchmark_done {
+            continue;
+        }
+        for i in 1..101 {
+            let start = rtc.get_counter();
+            let _ = PersonDetect::predict_quantized(features::PERSON);
+            let end = rtc.get_counter();
+            writeln!(serial, "{},{:.0}", i, (end - start) as f32 / RTC_FREQ_MHZ).unwrap();
+        }
+        writeln!(serial, "-----------------").unwrap();
+        benchmark_done = true;
     }
 }
