@@ -12,7 +12,7 @@ use panic_halt as _;
 
 const RTC_FREQ_MHZ: f32 = 0.032_768;
 
-#[path = "../../../features/person_detect.rs"]
+#[path = "../../../samples/features/person_detect.rs"]
 mod features;
 
 #[model("../../models/person_detect.tflite")]

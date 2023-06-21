@@ -1,7 +1,7 @@
 use microflow::buffer::Buffer2D;
 use microflow_macros::model;
 
-#[path = "../features/speech.rs"]
+#[path = "../samples/features/speech.rs"]
 mod features;
 
 #[model("models/speech.tflite")]

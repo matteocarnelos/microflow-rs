@@ -3,7 +3,7 @@
 
 use panic_probe as _;
 
-#[path = "../../../features/speech.rs"]
+#[path = "../../../samples/features/speech.rs"]
 mod features;
 
 #[rtic::app(device = hal::pac, peripherals = true, dispatchers = [I2SC0])]

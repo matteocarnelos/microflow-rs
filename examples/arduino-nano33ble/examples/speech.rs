@@ -14,7 +14,7 @@ use microflow::model;
 
 const RTC_FREQ_MHZ: f32 = 0.032_768;
 
-#[path = "../../../features/speech.rs"]
+#[path = "../../../samples/features/speech.rs"]
 mod features;
 
 #[model("../../models/speech.tflite")]

@@ -1,7 +1,7 @@
 use microflow::buffer::Buffer2D;
 use microflow_macros::model;
 
-#[path = "../features/person_detect.rs"]
+#[path = "../samples/features/person_detect.rs"]
 mod features;
 
 #[model("models/person_detect.tflite")]

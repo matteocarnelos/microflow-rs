@@ -9,7 +9,7 @@ use microflow::buffer::Buffer2D;
 use microflow::model;
 use panic_halt as _;
 
-#[path = "../../../features/speech.rs"]
+#[path = "../../../samples/features/speech.rs"]
 mod features;
 
 #[model("../../models/speech.tflite")]

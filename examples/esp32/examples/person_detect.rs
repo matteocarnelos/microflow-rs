@@ -9,7 +9,7 @@ use hal::{clock::ClockControl, peripherals::Peripherals, prelude::*, timer::Time
 use microflow::buffer::Buffer2D;
 use microflow::model;
 
-#[path = "../../../features/person_detect.rs"]
+#[path = "../../../samples/features/person_detect.rs"]
 mod features;
 
 #[model("../../models/person_detect.tflite")]
