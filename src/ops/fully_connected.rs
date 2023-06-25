@@ -10,6 +10,17 @@ pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
 
+/// Performs the FullyConnected operation.
+/// Returns a 2-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 2-dimensional input tensor
+/// * `weights` - The 2-dimensional tensor representing the weights of the operator
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`FullyConnectedOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
 pub fn fully_connected<
     T: Quantized,
     const INPUT_ROWS: usize,
@@ -32,6 +43,7 @@ pub fn fully_connected<
         Buffer2D<i32, INPUT_ROWS, WEIGHTS_COLS>,
         Buffer2D<i32, INPUT_ROWS, 1>,
     ) = (
+        // Perform the dot product between the input and the weights
         Buffer2D::from_fn(|i, j| {
             input
                 .buffer
@@ -42,6 +54,7 @@ pub fn fully_connected<
                     acc + i32::from_subset(i) * i32::from_subset(w)
                 })
         }),
+        // Perform the row-sum of the weights
         Buffer2D::from_fn(|i, _| {
             input
                 .buffer
@@ -50,6 +63,7 @@ pub fn fully_connected<
                 * i32::from_subset(&weights.zero_point[0])
         }),
     );
+    // Combine the constant values and the variants to obtain the output
     let output = Buffer2D::from_fn(|i, j| {
         let y = T::from_superset_unchecked(&roundf(
             f32::from_subset(&output_zero_point[0])
@@ -57,6 +71,7 @@ pub fn fully_connected<
                 + constants.1
                     * f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3)),
         ));
+        // Apply the fused activation function (if any)
         match options.fused_activation {
             FusedActivation::None => y,
             FusedActivation::Relu => relu(y, output_zero_point[0]),

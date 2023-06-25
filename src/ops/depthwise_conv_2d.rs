@@ -14,6 +14,17 @@ pub struct DepthwiseConv2DOptions {
     pub strides: (usize, usize),
 }
 
+/// Performs the DepthwiseConv2D operation.
+/// Returns a 4-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 4-dimensional input tensor
+/// * `weights` - The 4-dimensional tensor representing the weights of the operator
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`DepthwiseConv2DOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
 pub fn depthwise_conv_2d<
     T: Quantized,
     const INPUT_ROWS: usize,
@@ -37,8 +48,10 @@ pub fn depthwise_conv_2d<
     ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
+        // Extract the view using the view extraction algorithm
         let view: View<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
+        // Perform the convolution for each input channel
         array::from_fn(|c| {
             let input_zero_point = i32::from_subset(&input.zero_point[0]);
             let weights_zero_point = i32::from_subset(
@@ -49,14 +62,17 @@ pub fn depthwise_conv_2d<
                     .unwrap_or(weights.zero_point[0]),
             );
             let x = (
+                // Perform the dot product between the input region and the weights
                 view.buffer.zip_fold(&weights.buffer[0], 0i32, |acc, v, w| {
                     acc + i32::from_subset(&v.get(c).copied().unwrap_or(v[0]))
                         * i32::from_subset(&w[c])
                 }),
+                // Perform the 2-dimensional component-sum of the view for the given channel
                 view.buffer.fold(0i32, |acc, a| {
                     acc + i32::from_subset(&a.get(c).copied().unwrap_or(a[0]))
                 }) * weights_zero_point,
             );
+            // Elaborate the constants
             let constants = (
                 constants.0,
                 constants.1,
@@ -70,12 +86,14 @@ pub fn depthwise_conv_2d<
                     }),
                 view.len as i32 * input_zero_point * weights_zero_point,
             );
+            // Combine the constant values and the variants to obtain the output
             let y = T::from_superset_unchecked(&roundf(
                 f32::from_subset(&output_zero_point[0])
                     + constants.0[c]
                     + constants.1.get(c).copied().unwrap_or(constants.1[0])
                         * f32::from_subset(&(x.0 - x.1 - constants.2 + constants.3)),
             ));
+            // Apply the fused activation function (if any)
             match options.fused_activation {
                 FusedActivation::None => y,
                 FusedActivation::Relu => relu(y, output_zero_point[0]),

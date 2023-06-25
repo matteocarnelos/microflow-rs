@@ -15,6 +15,17 @@ pub struct AveragePool2DOptions {
     pub strides: (usize, usize),
 }
 
+/// Performs the AveragePool2D operation.
+/// Returns a 4-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 4-dimensional input tensor
+/// * `_filter_shape` - The phantom shape of the filter
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`AveragePool2DOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
 pub fn average_pool_2d<
     T: Quantized,
     const INPUT_ROWS: usize,
@@ -33,14 +44,17 @@ pub fn average_pool_2d<
     constants: (f32, f32),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
+        // Extract the view using the view extraction algorithm
         let view: View<T, FILTER_ROWS, FILTER_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
+        // Compute the average pooling for each channel
         array::from_fn(|c| {
             let x = 1. / view.len as f32
                 * view
                     .buffer
                     .fold(0i32, |acc, a| acc + i32::from_subset(&a[c])) as f32;
             let y = T::from_superset_unchecked(&roundf(constants.0 * x + constants.1));
+            // Apply the fused activation function (if any)
             match options.fused_activation {
                 FusedActivation::None => y,
                 FusedActivation::Relu => relu(y, output_zero_point[0]),
