@@ -1,7 +1,7 @@
 use crate::activation::TokenFusedActivation;
 use crate::buffer::TokenBuffer2D;
 use crate::quantize::TokenQuantized;
-use crate::tensor::{TokenTensor2D, TokenTensor4D, TokenViewPadding};
+use crate::tensor::{TokenTensor2D, TokenTensor4D, TokenTensorViewPadding};
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::DMatrix;
@@ -12,7 +12,7 @@ pub(crate) struct TokenConv2D<T: TokenQuantized> {
     pub(crate) filters: TokenTensor4D<T>,
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) view_padding: TokenViewPadding,
+    pub(crate) view_padding: TokenTensorViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (TokenBuffer2D<f32>, TokenBuffer2D<f32>),
     pub(crate) index: usize,
@@ -148,7 +148,7 @@ mod tests {
                 zero_point: vec![30],
             },
             fused_activation: TokenFusedActivation::Relu6,
-            view_padding: TokenViewPadding::Same,
+            view_padding: TokenTensorViewPadding::Same,
             strides: (1, 1),
             constants: (
                 TokenBuffer2D::from(dmatrix![31., 32.]),

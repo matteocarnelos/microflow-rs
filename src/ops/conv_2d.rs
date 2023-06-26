@@ -6,11 +6,11 @@ use simba::scalar::SupersetOf;
 use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor4D, View, ViewPadding};
+use crate::tensor::{Tensor4D, TensorView, TensorViewPadding};
 
 pub struct Conv2DOptions {
     pub fused_activation: FusedActivation,
-    pub view_padding: ViewPadding,
+    pub view_padding: TensorViewPadding,
     pub strides: (usize, usize),
 }
 
@@ -49,7 +49,7 @@ pub fn conv_2d<
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, FILTERS_BATCHES, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
         // Extract the view using the view extraction algorithm
-        let view: View<T, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS> =
+        let view: TensorView<T, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
         // Perform the convolution for each filter batch
         array::from_fn(|b| {
@@ -149,7 +149,7 @@ mod tests {
     const OUTPUT_ZERO_POINT: [i8; 1] = [50];
     const OPTIONS: Conv2DOptions = Conv2DOptions {
         fused_activation: FusedActivation::None,
-        view_padding: ViewPadding::Same,
+        view_padding: TensorViewPadding::Same,
         strides: (1, 1),
     };
     const CONSTANTS: (Buffer2D<f32, 2, 1>, Buffer2D<f32, 2, 1>) = (

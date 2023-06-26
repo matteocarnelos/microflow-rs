@@ -1,6 +1,6 @@
 use crate::activation::TokenFusedActivation;
 use crate::quantize::TokenQuantized;
-use crate::tensor::{TokenTensor4D, TokenViewPadding};
+use crate::tensor::{TokenTensor4D, TokenTensorViewPadding};
 use crate::tflite_flatbuffers::tflite::{Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream as TokenStream2;
@@ -11,7 +11,7 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) filter_shape: (usize, usize),
     pub(crate) output: TokenTensor4D<T>,
     pub(crate) fused_activation: TokenFusedActivation,
-    pub(crate) view_padding: TokenViewPadding,
+    pub(crate) view_padding: TokenTensorViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (f32, f32),
 }
@@ -105,7 +105,7 @@ mod tests {
                 zero_point: vec![2],
             },
             fused_activation: TokenFusedActivation::None,
-            view_padding: TokenViewPadding::Same,
+            view_padding: TokenTensorViewPadding::Same,
             strides: (1, 1),
             constants: (3., 4.),
         }

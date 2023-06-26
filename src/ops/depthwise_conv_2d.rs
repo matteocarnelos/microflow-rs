@@ -6,11 +6,11 @@ use simba::scalar::SupersetOf;
 use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
-use crate::tensor::{Tensor4D, View, ViewPadding};
+use crate::tensor::{Tensor4D, TensorView, TensorViewPadding};
 
 pub struct DepthwiseConv2DOptions {
     pub fused_activation: FusedActivation,
-    pub view_padding: ViewPadding,
+    pub view_padding: TensorViewPadding,
     pub strides: (usize, usize),
 }
 
@@ -49,7 +49,7 @@ pub fn depthwise_conv_2d<
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
         // Extract the view using the view extraction algorithm
-        let view: View<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
+        let view: TensorView<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
         // Perform the convolution for each input channel
         array::from_fn(|c| {
@@ -140,7 +140,7 @@ mod tests {
     const OUTPUT_ZERO_POINT: [i8; 1] = [38];
     const OPTIONS: DepthwiseConv2DOptions = DepthwiseConv2DOptions {
         fused_activation: FusedActivation::None,
-        view_padding: ViewPadding::Same,
+        view_padding: TensorViewPadding::Same,
         strides: (1, 1),
     };
     const CONSTANTS: (Buffer2D<f32, 2, 1>, Buffer2D<f32, 2, 1>) = (

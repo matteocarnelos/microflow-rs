@@ -5,12 +5,12 @@ use crate::buffer::{Buffer2D, Buffer4D};
 use crate::quantize::{dequantize, quantize, Quantized};
 
 #[derive(Copy, Clone)]
-pub enum ViewPadding {
+pub enum TensorViewPadding {
     Same,
     Valid,
 }
 
-pub struct View<T: Quantized, const ROWS: usize, const COLS: usize, const CHANS: usize> {
+pub struct TensorView<T: Quantized, const ROWS: usize, const COLS: usize, const CHANS: usize> {
     pub buffer: Buffer2D<[T; CHANS], ROWS, COLS>,
     pub mask: Buffer2D<bool, ROWS, COLS>,
     pub len: usize,
@@ -137,27 +137,40 @@ impl<
         }
     }
 
+    /// Extracts a view from the tensor.
+    /// Returns the 4-dimensional tensor view as a [`TensorView`] struct.
+    ///
+    /// # Arguments
+    /// * `focus` - The focus point of the view, i.e., the pseudo-center of the view
+    /// * `batch` - The tensor batch from which to extract the view
+    /// * `padding` - The view padding as a [`TensorViewPadding`] enum
+    /// * `strides` - The view strides on the width and height of the tensor, repectively
+    ///
     pub fn view<const VIEW_ROWS: usize, const VIEW_COLS: usize>(
         &self,
         focus: (usize, usize),
         batch: usize,
-        padding: ViewPadding,
+        padding: TensorViewPadding,
         strides: (usize, usize),
-    ) -> View<T, VIEW_ROWS, VIEW_COLS, CHANS> {
+    ) -> TensorView<T, VIEW_ROWS, VIEW_COLS, CHANS> {
         let mut len = VIEW_ROWS * VIEW_COLS;
         let mut mask = Buffer2D::from_element(true);
-        View {
+        TensorView {
             buffer: Buffer2D::from_fn(|m, n| match padding {
-                ViewPadding::Same => {
+                TensorViewPadding::Same => {
+                    // Compute the index shift based on the view dimensions
                     let shift = ((VIEW_ROWS - 1) / 2, (VIEW_COLS - 1) / 2);
                     let index = (
+                        // If the calculated index falls within the tensor bounds, keep it
                         if let Some(x) = (strides.0 * focus.0 + m).checked_sub(shift.0) {
                             x
+                        // Otherwise, return zero (as per "same" padding)
                         } else {
                             len -= 1;
                             mask[(m, n)] = false;
                             return [T::from_superset_unchecked(&0); CHANS];
                         },
+                        // Same for the other index value
                         if let Some(x) = (strides.1 * focus.1 + n).checked_sub(shift.1) {
                             x
                         } else {
@@ -166,13 +179,15 @@ impl<
                             return [T::from_superset_unchecked(&0); CHANS];
                         },
                     );
+                    // Extract the view for the computed index
                     self.buffer[batch].get(index).copied().unwrap_or_else(|| {
                         len -= 1;
                         mask[(m, n)] = false;
                         [T::from_superset_unchecked(&0); CHANS]
                     })
                 }
-                ViewPadding::Valid => {
+                TensorViewPadding::Valid => {
+                    // For "valid" paddings, directly extract the view for valid indexes only
                     self.buffer[batch][(strides.0 * focus.0 + m, strides.1 * focus.1 + n)]
                 }
             }),
@@ -340,7 +355,7 @@ mod tests {
             TENSOR_4D_SCALE,
             TENSOR_4D_ZERO_POINT,
         );
-        let view: View<i8, 2, 3, 2> = tensor.view((1, 1), 0, ViewPadding::Same, (1, 1));
+        let view: TensorView<i8, 2, 3, 2> = tensor.view((1, 1), 0, TensorViewPadding::Same, (1, 1));
         assert_eq!(view.buffer, TENSOR_4D_VIEW_BUFFER);
         assert_eq!(view.mask, TENSOR_4D_VIEW_MASK);
         assert_eq!(view.len, TENSOR_4D_VIEW_LEN);
