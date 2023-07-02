@@ -22,6 +22,8 @@ jobs:
       run: rustup toolchain install nightly --component rust-src
     - name: Install ESP Toolchain
       run: espup install
+    - name: Install AVR Toolchain
+      run: sudo apt install -y avr-libc gcc-avr pkg-config
     - name: Add Targets
       run: rustup target add thumbv7em-none-eabihf thumbv7m-none-eabi
     - name: Make All
