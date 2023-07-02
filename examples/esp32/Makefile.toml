@@ -1,0 +1,10 @@
+[tasks.default]
+clear = true
+dependencies = [
+    "examples-compile",
+    "clippy",
+    "check-format"
+]
+
+[tasks.examples-compile]
+args = ["build", "--examples", "--release"]

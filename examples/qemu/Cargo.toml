@@ -1,0 +1,16 @@
+[package]
+name = "examples-qemu"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+cortex-m-semihosting = "0.5"
+panic-halt = "0.2"
+microflow = { path = "../.." }
+nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
+libm = "0.2"
+
+[profile.release]
+lto = true

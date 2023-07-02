@@ -1,0 +1,10 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "arduino-run -b arduino:mbed_nano:nano33ble"
+rustflags = [
+    "-C", "linker=flip-link",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=--nmagic",
+]
+
+[build]
+target = "thumbv7em-none-eabihf"

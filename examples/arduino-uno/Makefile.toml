@@ -1,0 +1,11 @@
+[tasks.default]
+clear = true
+dependencies = [
+    "examples-compile",
+    "clippy",
+    "check-format",
+]
+
+[tasks.examples-compile]
+toolchain = "nightly"
+args = ["build", "--examples", "--release"]

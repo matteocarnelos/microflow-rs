@@ -1,0 +1,55 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[config]
+default_to_workspace = false
+
+[tasks.default]
+alias = "microflow"
+
+[tasks.all]
+dependencies = [
+    "examples-arduino-nano33ble",
+    "examples-arduino-uno",
+    "examples-atsamx7x",
+    "examples-esp32",
+    "examples-qemu",
+]
+run_task = { name = "microflow", fork = true }
+
+[tasks.microflow]
+workspace = true
+dependencies = [
+    "build",
+    "examples-compile",
+    "test",
+    "clippy",
+    "check-format",
+    "docs",
+]
+
+[tasks.examples-arduino-nano33ble]
+cwd = "examples/arduino-nano33ble"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-arduino-uno]
+cwd = "examples/arduino-uno"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-atsamx7x]
+cwd = "examples/atsamx7x"
+command = "cargo"
+args = ["make"]
+
+[tasks.examples-esp32]
+cwd = "examples/esp32"
+command = "cargo"
+args = ["+esp", "make"]
+install_crate = false
+
+[tasks.examples-qemu]
+cwd = "examples/qemu"
+command = "cargo"
+args = ["make"]

@@ -1,0 +1,15 @@
+[package]
+name = "examples-esp32"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+esp-println = { version = "0.3", features = ["esp32"] }
+esp-backtrace = { version = "0.5", features = ["esp32", "panic-handler", "print-uart"] }
+hal = { package = "esp32-hal", git = "https://github.com/esp-rs/esp-hal" }
+microflow = { path = "../.." }
+nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
+libm = "0.2"
+
+[profile.release]
+lto = true

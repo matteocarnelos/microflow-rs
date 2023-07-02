@@ -1,0 +1,10 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel"
+rustflags = [
+    "-C", "linker=flip-link",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=--nmagic",
+]
+
+[build]
+target = "thumbv7m-none-eabi"

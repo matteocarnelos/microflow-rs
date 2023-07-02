@@ -1,0 +1,26 @@
+[package]
+name = "examples-arduino-uno"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+avr-device = "0.5"
+ufmt = "0.2"
+ufmt_float = { git = "https://github.com/tl8roy/ufmt_float" }
+panic-halt = "0.2"
+hal = { package = "arduino-hal", git = "https://github.com/rahix/avr-hal", features = ["arduino-uno"] }
+microflow = { path = "../.." }
+nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
+libm = "0.2"
+
+[profile.dev]
+opt-level = "z"
+panic = "abort"
+lto = true
+codegen-units = 1
+
+[profile.release]
+opt-level = "z"
+panic = "abort"
+lto = true
+codegen-units = 1
