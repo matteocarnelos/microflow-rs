@@ -4,18 +4,25 @@ use core::fmt::Debug;
 use crate::buffer::{Buffer2D, Buffer4D};
 use crate::quantize::{dequantize, quantize, Quantized};
 
+/// Represents the padding options for the [`TensorView`].
 #[derive(Copy, Clone)]
 pub enum TensorViewPadding {
+    /// In the 'Same' padding, the [`TensorView`] is allowed to exceed the input bounds.
+    /// The exceeding values will be replaced by zeros.
     Same,
+    /// In the 'Valid' padding, the [`TensorView`] will always remain in the input bounds.
     Valid,
 }
 
+/// Represents the tensor view, i.e., the input region extracted from the tensor.
 pub struct TensorView<T: Quantized, const ROWS: usize, const COLS: usize, const CHANS: usize> {
     pub buffer: Buffer2D<[T; CHANS], ROWS, COLS>,
     pub mask: Buffer2D<bool, ROWS, COLS>,
     pub len: usize,
 }
 
+/// Represents a quantized 2-dimensional tensor.
+/// The tensor is composed by a 2-dimensional matrix.
 #[derive(Debug, PartialEq)]
 pub struct Tensor2D<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize> {
     pub buffer: Buffer2D<T, ROWS, COLS>,
@@ -23,6 +30,8 @@ pub struct Tensor2D<T: Quantized, const ROWS: usize, const COLS: usize, const QU
     pub zero_point: [T; QUANTS],
 }
 
+/// Represents a quantized 4-dimensional tensor.
+/// The tensor is composed by a series of batches containing matrices with multiple channels.
 #[derive(Debug, PartialEq)]
 pub struct Tensor4D<
     T: Quantized,
@@ -40,6 +49,13 @@ pub struct Tensor4D<
 impl<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize>
     Tensor2D<T, ROWS, COLS, QUANTS>
 {
+    /// Builds a quantized [`Tensor2D`] from the given buffer, scale, and zero point.
+    ///
+    /// # Arguments
+    /// * `buffer` - The tensor buffer as a [`Buffer2D`]
+    /// * `scale` - The tensor scale (for quantization)
+    /// * `zero_point` - The tensor zero point (for quantization)
+    ///
     pub const fn new(
         buffer: Buffer2D<T, ROWS, COLS>,
         scale: [f32; QUANTS],
@@ -54,6 +70,13 @@ impl<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize>
 }
 
 impl<T: Quantized, const ROWS: usize, const COLS: usize> Tensor2D<T, ROWS, COLS, 1> {
+    /// Builds a quantized [`Tensor2D`] from a dequantized [`Buffer2D`].
+    ///
+    /// # Arguments
+    /// * `input` - The input buffer as a [`Buffer2D`]
+    /// * `scale` - The quantization scale
+    /// * `zero_point` - The quantization zero point
+    ///
     pub fn quantize(input: Buffer2D<f32, ROWS, COLS>, scale: [f32; 1], zero_point: [T; 1]) -> Self {
         Self::new(
             input.map(|f| quantize(f, scale[0], zero_point[0])),
@@ -62,6 +85,7 @@ impl<T: Quantized, const ROWS: usize, const COLS: usize> Tensor2D<T, ROWS, COLS,
         )
     }
 
+    /// Returns a dequantized [`Buffer2D`] from [`Self`].
     pub fn dequantize(&self) -> Buffer2D<f32, ROWS, COLS> {
         self.buffer
             .map(|q| dequantize(q, self.scale[0], self.zero_point[0]))
@@ -125,6 +149,13 @@ impl<
         const QUANTS: usize,
     > Tensor4D<T, BATCHES, ROWS, COLS, CHANS, QUANTS>
 {
+    /// Builds a quantized [`Tensor4D`] from the given buffer, scale, and zero point.
+    ///
+    /// # Arguments
+    /// * `buffer` - The tensor buffer as a [`Buffer4D`]
+    /// * `scale` - The tensor scale (for quantization)
+    /// * `zero_point` - The tensor zero point (for quantization)
+    ///
     pub const fn new(
         buffer: Buffer4D<T, BATCHES, ROWS, COLS, CHANS>,
         scale: [f32; QUANTS],
@@ -205,6 +236,13 @@ impl<
         const CHANS: usize,
     > Tensor4D<T, BATCHES, ROWS, COLS, CHANS, 1>
 {
+    /// Builds a quantized [`Tensor4D`] from a dequantized [`Buffer4D`].
+    ///
+    /// # Arguments
+    /// * `input` - The input buffer as a [`Buffer4D`]
+    /// * `scale` - The quantization scale
+    /// * `zero_point` - The quantization zero point
+    ///
     pub fn quantize(
         input: Buffer4D<f32, BATCHES, ROWS, COLS, CHANS>,
         scale: [f32; 1],
@@ -217,6 +255,7 @@ impl<
         )
     }
 
+    /// Returns a dequantized [`Buffer2D`] from [`Self`].
     pub fn dequantize(&self) -> Buffer4D<f32, BATCHES, ROWS, COLS, CHANS> {
         self.buffer
             .map(|m| m.map(|a| a.map(|q| dequantize(q, self.scale[0], self.zero_point[0]))))

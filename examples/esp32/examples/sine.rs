@@ -47,22 +47,5 @@ fn main() -> ! {
     println!("Error: {}", y_exact - y_predicted);
     println!("Execution time: {} us", end - start);
 
-    println!(" ");
-    println!("--- Benchmark ---");
-
-    let mut benchmark_done = false;
-
-    loop {
-        if benchmark_done {
-            continue;
-        }
-        for i in 1..101 {
-            let start = rtc.get_time_us();
-            let _ = Sine::predict(matrix![0.5])[0];
-            let end = rtc.get_time_us();
-            println!("{},{:.0}", i, end - start);
-        }
-        println!("-----------------");
-        benchmark_done = true;
-    }
+    loop {}
 }

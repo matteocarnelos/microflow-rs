@@ -1,3 +1,5 @@
+/// Performs the Reshape operator.
+/// Returns the correspondig output tensor.
 pub fn reshape<InputT, OutputT>(input: InputT) -> OutputT
 where
     InputT: Into<OutputT>,

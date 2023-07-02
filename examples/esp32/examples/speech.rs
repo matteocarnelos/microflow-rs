@@ -75,22 +75,5 @@ fn main() -> ! {
     print_prediction(no_predicted);
     println!("Execution time: {} us", end - start);
 
-    println!(" ");
-    println!("--- Benchmark ---");
-
-    let mut benchmark_done = false;
-
-    loop {
-        if benchmark_done {
-            continue;
-        }
-        for i in 1..101 {
-            let start = rtc.get_time_us();
-            let _ = Speech::predict_quantized(features::YES);
-            let end = rtc.get_time_us();
-            println!("{},{:.0}", i, end - start);
-        }
-        println!("-----------------");
-        benchmark_done = true;
-    }
+    loop {}
 }

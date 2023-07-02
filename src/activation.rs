@@ -2,20 +2,45 @@ use crate::quantize::{quantize, Quantized};
 use core::cmp::{max, min};
 use libm::expf;
 
+/// Represents the supported activation functions.
 pub enum FusedActivation {
+    /// The identity activation function.
     None,
+    /// The Rectified Linear Unit (ReLU) function.
     Relu,
+    /// The Rectified Linear Unit 6 (ReLU6) function.
     Relu6,
 }
 
+/// Performs the Rectified Linear Unit (ReLU) activation function.
+///
+/// # Arguments
+/// * `input` - The input value of type `T`
+/// * `zero_point` - The quantization zero point
+///
 pub fn relu<T: Quantized>(input: T, zero_point: T) -> T {
     max(input, zero_point)
 }
 
+/// Performs the Rectified Linear Unit 6 (ReLU6) activation function.
+///
+/// # Arguments
+/// * `input` - The input value of type `T`
+/// * `scale` - The quantization scale
+/// * `zero_point` - The quantization zero point
+///
 pub fn relu6<T: Quantized>(input: T, scale: f32, zero_point: T) -> T {
     min(relu(input, zero_point), quantize(6., scale, zero_point))
 }
 
+/// Performs the Softmax activation function.
+///
+/// # Arguments
+/// * `input` - The floating-point input value
+/// * `sum` - The sum of the outcomes
+/// * `scale` - The quantization scale
+/// * `zero_point` - The quantization zero point
+///
 pub fn softmax<T: Quantized>(input: f32, sum: f32, scale: f32, zero_point: T) -> T {
     quantize(expf(input) / sum, scale, zero_point)
 }

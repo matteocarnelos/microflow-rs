@@ -30,6 +30,11 @@ struct Args {
     path: LitStr,
 }
 
+/// The entry point of MicroFlow.
+/// This attribute-like procedural macro can be placed on `structs` to implement the `predict()`
+/// function based on the given model.
+/// The macro takes as input the path of the model, which must be in the TensorFlow Lite format
+/// (`.tflite`).
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {

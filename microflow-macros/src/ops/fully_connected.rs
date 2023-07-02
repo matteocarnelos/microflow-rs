@@ -10,6 +10,7 @@ use crate::quantize::TokenQuantized;
 use crate::tensor::TokenTensor2D;
 use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 
+/// Represents the tokenized version of the `FullyConnected` operator.
 pub(crate) struct TokenFullyConnected<T: TokenQuantized> {
     pub(crate) weights: TokenTensor2D<T>,
     pub(crate) output: TokenTensor2D<T>,
@@ -19,6 +20,14 @@ pub(crate) struct TokenFullyConnected<T: TokenQuantized> {
     pub(crate) reshape: bool,
 }
 
+/// Parses the [`TokenFullyConnected`] struct from the given operator.
+///
+/// # Arguments
+/// * `operator` - The model operator as an [`Operator`]
+/// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+/// * `buffers` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+/// * `index` - The operator index
+///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -39,6 +48,14 @@ pub(crate) fn parse(
 }
 
 impl<T: TokenQuantized> TokenFullyConnected<T> {
+    /// Builds the [`TokenFullyConnected`] operator from the given model operator and tensors.
+    ///
+    /// # Arguments
+    /// * `operator` - The model operator as an [`Operator`]
+    /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+    /// * `buffers` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+    /// * `index` - The operator index
+    ///
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -68,6 +85,14 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         }
     }
 
+    /// Pre-processes the operator, returning the tuple of constants.
+    ///
+    /// # Arguments
+    /// * `input` - The input of the operator as a [`TokenTensor2D`]
+    /// * `weights` - The weights of the operator as a [`TokenTensor2D`]
+    /// * `biases` - The biases of the operator as a [`TokenTensor2D`]
+    /// * `output` - The output of the operator as a [`TokenTensor2D`]
+    ///
     fn preprocess(
         input: &TokenTensor2D<T>,
         weights: &TokenTensor2D<T>,

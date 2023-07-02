@@ -5,10 +5,17 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
-pub(crate) struct Softmax<T: TokenQuantized> {
+/// Represents the tokenized version of the `Softmax` operator.
+pub(crate) struct TokenSoftmax<T: TokenQuantized> {
     pub(crate) output: TokenTensor2D<T>,
 }
 
+/// Parses the [`TokenSoftmax`] struct from the given operator.
+///
+/// # Arguments
+/// * `operator` - The model operator as an [`Operator`]
+/// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -16,13 +23,19 @@ pub(crate) fn parse(
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(Softmax::<i8>::new(operator, tensors)),
-        TensorType::UINT8 => Box::new(Softmax::<u8>::new(operator, tensors)),
+        TensorType::INT8 => Box::new(TokenSoftmax::<i8>::new(operator, tensors)),
+        TensorType::UINT8 => Box::new(TokenSoftmax::<u8>::new(operator, tensors)),
         _ => unimplemented!(),
     }
 }
 
-impl<T: TokenQuantized> Softmax<T> {
+impl<T: TokenQuantized> TokenSoftmax<T> {
+    /// Builds the [`TokenSoftmax`] operator from the given model operator and tensors.
+    ///
+    /// # Arguments
+    /// * `operator` - The model operator as an [`Operator`]
+    /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+    ///
     pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
         let output = TokenTensor2D::from_empty_tensor(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
@@ -31,7 +44,7 @@ impl<T: TokenQuantized> Softmax<T> {
     }
 }
 
-impl<T: TokenQuantized> ToTokens for Softmax<T> {
+impl<T: TokenQuantized> ToTokens for TokenSoftmax<T> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let output_shape = &self.output.shape;
         let output_scale = &self.output.scale;
@@ -50,8 +63,8 @@ mod tests {
     use super::*;
     use crate::buffer::TokenBuffer2D;
 
-    fn setup() -> Softmax<i8> {
-        Softmax {
+    fn setup() -> TokenSoftmax<i8> {
+        TokenSoftmax {
             output: TokenTensor2D {
                 buffer: TokenBuffer2D::new(),
                 shape: vec![2, 3],

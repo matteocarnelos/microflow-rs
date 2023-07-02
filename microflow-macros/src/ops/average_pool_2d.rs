@@ -7,6 +7,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use simba::scalar::SupersetOf;
 
+/// Represents the tokenized version of the `AveragePool2D` operator.
 pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) filter_shape: (usize, usize),
     pub(crate) output: TokenTensor4D<T>,
@@ -16,6 +17,12 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) constants: (f32, f32),
 }
 
+/// Parses the [`TokenAveragePool2D`] struct from the given operator.
+///
+/// # Arguments
+/// * `operator` - The model operator as an [`Operator`]
+/// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -30,6 +37,12 @@ pub(crate) fn parse(
 }
 
 impl<T: TokenQuantized> TokenAveragePool2D<T> {
+    /// Builds the [`TokenAveragePool2D`] operator from the given model operator and tensors.
+    ///
+    /// # Arguments
+    /// * `operator` - The model operator as an [`Operator`]
+    /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+    ///
     pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -51,6 +64,12 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
         }
     }
 
+    /// Pre-processes the operator, returning the tuple of constants.
+    ///
+    /// # Arguments
+    /// * `input` - The input of the operator as a [`TokenTensor2D`]
+    /// * `output` - The output of the operator as a [`TokenTensor2D`]
+    ///
     fn preprocess(input: &TokenTensor4D<T>, output: &TokenTensor4D<T>) -> (f32, f32) {
         (
             input.scale[0] / output.scale[0],

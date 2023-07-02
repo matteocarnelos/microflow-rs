@@ -3,18 +3,31 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
-pub(crate) struct Reshape {
+/// Represents the tokenized version of the `Reshape` operator.
+pub(crate) struct TokenReshape {
     pub(crate) output_shape: Vec<usize>,
 }
 
+/// Parses the [`TokenReshape`] struct from the given operator.
+///
+/// # Arguments
+/// * `operator` - The model operator as an [`Operator`]
+/// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
 ) -> Box<dyn ToTokens> {
-    Box::new(Reshape::new(operator, tensors))
+    Box::new(TokenReshape::new(operator, tensors))
 }
 
-impl Reshape {
+impl TokenReshape {
+    /// Builds the [`TokenReshape`] operator from the given model operator and tensors.
+    ///
+    /// # Arguments
+    /// * `operator` - The model operator as an [`Operator`]
+    /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+    ///
     pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
         let output_shape: Vec<_> = tensors
             .get(operator.outputs().unwrap().get(0) as usize)
@@ -27,7 +40,7 @@ impl Reshape {
     }
 }
 
-impl ToTokens for Reshape {
+impl ToTokens for TokenReshape {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let output_shape = &self.output_shape;
         let output_tensor = match output_shape.len() {
@@ -48,8 +61,8 @@ impl ToTokens for Reshape {
 mod tests {
     use super::*;
 
-    fn setup() -> Reshape {
-        Reshape {
+    fn setup() -> TokenReshape {
+        TokenReshape {
             output_shape: vec![2, 3],
         }
     }

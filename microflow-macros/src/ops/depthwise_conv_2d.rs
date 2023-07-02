@@ -8,6 +8,7 @@ use nalgebra::DMatrix;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 
+/// Represents the tokenized version of the `DepthwiseConv2D` operator.
 pub(crate) struct TokenDepthwiseConv2D<T: TokenQuantized> {
     pub(crate) weights: TokenTensor4D<T>,
     pub(crate) output: TokenTensor4D<T>,
@@ -18,6 +19,14 @@ pub(crate) struct TokenDepthwiseConv2D<T: TokenQuantized> {
     pub(crate) index: usize,
 }
 
+/// Parses the [`TokenDepthwiseConv2D`] struct from the given operator.
+///
+/// # Arguments
+/// * `operator` - The model operator as an [`Operator`]
+/// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+/// * `buffers` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+/// * `index` - The operator index
+///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -38,6 +47,14 @@ pub(crate) fn parse(
 }
 
 impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
+    /// Builds the [`TokenDepthwiseConv2D`] operator from the given model operator and tensors.
+    ///
+    /// # Arguments
+    /// * `operator` - The model operator as an [`Operator`]
+    /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+    /// * `buffers` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+    /// * `index` - The operator index
+    ///
     pub(crate) fn new(
         operator: Operator,
         tensors: Vector<ForwardsUOffset<Tensor>>,
@@ -68,6 +85,14 @@ impl<T: TokenQuantized> TokenDepthwiseConv2D<T> {
         }
     }
 
+    /// Pre-processes the operator, returning the tuple of constants.
+    ///
+    /// # Arguments
+    /// * `input` - The input of the operator as a [`TokenTensor2D`]
+    /// * `weights` - The weights of the operator as a [`TokenTensor2D`]
+    /// * `biases` - The biases of the operator as a [`TokenTensor2D`]
+    /// * `output` - The output of the operator as a [`TokenTensor2D`]
+    ///
     fn preprocess(
         input: &TokenTensor4D<T>,
         weights: &TokenTensor4D<T>,

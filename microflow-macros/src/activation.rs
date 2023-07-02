@@ -2,6 +2,7 @@ use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
+/// Represents the tokenized version of the [`FusedActivation`].
 #[derive(Copy, Clone)]
 pub(crate) enum TokenFusedActivation {
     None,

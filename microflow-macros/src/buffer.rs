@@ -4,13 +4,16 @@ use nalgebra::DMatrix;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
+/// Represents the tokenized version of the `Buffer2D`.
 #[derive(Debug)]
 pub(crate) struct TokenBuffer2D<T>(pub(crate) Option<DMatrix<T>>);
 
+/// Represents the tokenized version of the `Buffer4D`.
 #[derive(Debug)]
 pub(crate) struct TokenBuffer4D<T>(pub(crate) Option<Vec<DMatrix<Vec<T>>>>);
 
 impl<T> TokenBuffer2D<T> {
+    /// Builds an empty [`TokenBuffer2D`].
     pub(crate) fn new() -> Self {
         Self(None)
     }
@@ -43,6 +46,7 @@ impl<T> Deref for TokenBuffer2D<T> {
 }
 
 impl<T> TokenBuffer4D<T> {
+    /// Builds an empty [`TokenBuffer4D`].
     pub(crate) fn new() -> Self {
         Self(None)
     }

@@ -1,9 +1,10 @@
 #![no_std]
 #![no_main]
 
-use core::fmt::Write;
 use panic_halt as _;
 
+use core::fmt::Write;
+use cortex_m::asm::nop;
 use cortex_m_rt::entry;
 use hal::gpio::Level;
 use hal::uarte::{Baudrate, Parity};
@@ -56,22 +57,7 @@ fn main() -> ! {
     )
     .unwrap();
 
-    writeln!(serial).unwrap();
-    writeln!(serial, "--- Benchmark ---").unwrap();
-
-    let mut benchmark_done = false;
-
     loop {
-        if benchmark_done {
-            continue;
-        }
-        for i in 1..101 {
-            let start = rtc.get_counter();
-            let _ = Sine::predict(matrix![0.5])[0];
-            let end = rtc.get_counter();
-            writeln!(serial, "{},{:.0}", i, (end - start) as f32 / RTC_FREQ_MHZ).unwrap();
-        }
-        writeln!(serial, "-----------------").unwrap();
-        benchmark_done = true;
+        nop();
     }
 }

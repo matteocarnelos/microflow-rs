@@ -12,12 +12,14 @@ use crate::buffer::{TokenBuffer2D, TokenBuffer4D};
 use crate::quantize::TokenQuantized;
 use crate::tflite_flatbuffers::tflite::{Buffer, Padding, Tensor};
 
+/// Represents the tokenized version of the `TensorViewPadding`.
 #[derive(Copy, Clone)]
 pub(crate) enum TokenTensorViewPadding {
     Same,
     Valid,
 }
 
+/// Represents the tokenized version of the `Tensor2D`.
 #[derive(Debug)]
 pub(crate) struct TokenTensor2D<T: TokenQuantized> {
     pub(crate) buffer: TokenBuffer2D<T>,
@@ -26,6 +28,7 @@ pub(crate) struct TokenTensor2D<T: TokenQuantized> {
     pub(crate) zero_point: Vec<T>,
 }
 
+/// Represents the tokenized version of the `Tensor4D`.
 #[derive(Debug)]
 pub(crate) struct TokenTensor4D<T: TokenQuantized> {
     pub(crate) buffer: TokenBuffer4D<T>,
@@ -55,6 +58,11 @@ impl From<Padding> for TokenTensorViewPadding {
 }
 
 impl<T: TokenQuantized> TokenTensor2D<T> {
+    /// Builds a [`TokenTensor2D`] from an empty [`Tensor`].
+    ///
+    /// # Arguments
+    /// * `tensor` - The empty model tensor as a [`Tensor`]
+    ///
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
         let mut shape: Vec<_> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
         if shape.len() == 1 {
@@ -81,6 +89,12 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         }
     }
 
+    /// Builds a [`TokenTensor2D`] from a [`Tensor`] with a buffer.
+    ///
+    /// # Arguments
+    /// * `tensor` - The model tensor as a [`Tensor`]
+    /// * `buffer` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+    ///
     pub fn from_buffered_tensor(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
         let mut token_tensor = Self::from_empty_tensor(tensor);
         let matrix = DMatrix::from_iterator(
@@ -99,6 +113,7 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         token_tensor
     }
 
+    /// Returns the tokens of the [`Self`] type.
     pub fn type_tokens(&self) -> TokenStream2 {
         let ty = parse_str::<Type>(type_name::<T>()).unwrap();
         let shape = &self.shape;
@@ -125,6 +140,11 @@ impl<T: TokenQuantized> ToTokens for TokenTensor2D<T> {
 }
 
 impl<T: TokenQuantized> TokenTensor4D<T> {
+    /// Builds a [`TokenTensor4D`] from an empty [`Tensor`].
+    ///
+    /// # Arguments
+    /// * `tensor` - The empty model tensor as a [`Tensor`]
+    ///
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
         Self {
             buffer: TokenBuffer4D::new(),
@@ -147,6 +167,12 @@ impl<T: TokenQuantized> TokenTensor4D<T> {
         }
     }
 
+    /// Builds a [`TokenTensor4D`] from a [`Tensor`] with a buffer.
+    ///
+    /// # Arguments
+    /// * `tensor` - The model tensor as a [`Tensor`]
+    /// * `buffer` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
+    ///
     pub fn from_buffered_tensor(tensor: Tensor, buffers: Vector<ForwardsUOffset<Buffer>>) -> Self {
         let mut t = Self::from_empty_tensor(tensor);
         let len = t.shape.iter().product::<usize>() * size_of::<T>();
@@ -173,6 +199,7 @@ impl<T: TokenQuantized> TokenTensor4D<T> {
         t
     }
 
+    /// Returns the tokens of the [`Self`] type.
     pub fn type_tokens(&self) -> TokenStream2 {
         let ty = parse_str::<Type>(type_name::<T>()).unwrap();
         let shape = &self.shape;
