@@ -10,13 +10,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  make:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install `cargo-make`
-      run: cargo install cargo-make
+    - name: Install Crates
+      run: cargo install cargo-make flip-link espup
+    - name: Install Nightly Toolchain
+      run: rustup toolchain install nightly --component rust-src
+    - name: Install ESP Toolchain
+      run: espup install
+    - name: Add Targets
+      run: rustup target add thumbv7em-none-eabihf thumbv7m-none-eabi
     - name: Make All
       run: cargo make all
