@@ -7,7 +7,7 @@ It was developed by Matteo Carnelos as part of his master's thesis project at th
 
 MicroFlow uses a compiler-based approach, resulting in the following engine structure:
 
-<p style="text-align: center;">
+<p align="center">
   <br/>
   <img src="res/structure-overview.svg" alt="structure-overview">
 </p>
