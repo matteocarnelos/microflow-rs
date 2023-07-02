@@ -24,7 +24,9 @@ jobs:
       run: espup install
     - name: Install AVR Toolchain
       run: sudo apt install -y avr-libc gcc-avr pkg-config
-    - name: Add Targets
+    - name: Add Rust Targets
       run: rustup target add thumbv7em-none-eabihf thumbv7m-none-eabi
+    - name: Add ESP Target
+      run: . ~/export-esp.sh
     - name: Make All
       run: cargo make all
