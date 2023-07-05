@@ -39,6 +39,19 @@ fn main() {
 }
 ```
 
+## Examples
+
+The examples provided with MicroFlow can be found in the `examples` folder.
+To run an example on a target board, `cd` into the board directory for the example (e.g. `examples/arduino-uno`) and run the command:
+```
+cargo run --example <example-name>
+```
+Otherwise, to run the example locally, just run the above command in the root directory.
+
+> **Note**
+>
+> For board examples, you might need to install additional tools and configure the runner to make the example work for your setup.
+
 ## Supported Operators
 
 Currently, MicroFlow supports the following operators and activation functions:
@@ -62,8 +75,7 @@ However, MicroFlow's development roadmap includes plans for implementing additio
 
 ## Tested Models and MCUs
 
-The `examples` folder contains the code used to test MicroFlow on different MCUs.
-These MCUs include:
+The `examples` folder contains the code used to test MicroFlow on different MCUs, including:
 
 - ESP32 (32-bit Xtensa)
 - ATSAMV71 (32-bit Cortex-M7F)
