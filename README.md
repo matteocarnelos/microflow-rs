@@ -43,7 +43,7 @@ fn main() {
 
 The examples provided with MicroFlow can be found in the `examples` folder.
 To run an example on a target board, `cd` into the board directory for the example (e.g. `examples/arduino-uno`) and run the command:
-```ignore
+```bash ignore
 cargo run --example <example-name>
 ```
 Otherwise, to run the example locally, just run the above command in the root directory.
