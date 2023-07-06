@@ -105,4 +105,4 @@ Licensed under either of
 
 at your option.
 
-Copyright © 2023, [Matteo Carnelos](https://github.com/matteocarnelos).
+Copyright © 2023, [Matteo Carnelos](https://github.com/matteocarnelos)
