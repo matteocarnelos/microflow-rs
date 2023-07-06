@@ -104,3 +104,5 @@ Licensed under either of
 * MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
+
+Copyright © 2023, [Matteo Carnelos](https://github.com/matteocarnelos).
