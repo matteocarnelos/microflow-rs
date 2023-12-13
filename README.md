@@ -8,10 +8,18 @@ It was developed by Matteo Carnelos as part of his master's thesis project at th
 
 MicroFlow uses a compiler-based approach, resulting in the following engine structure:
 
-<p align="center">
-  <br/>
-  <img src="res/structure-overview.svg" alt="structure-overview">
-</p>
+```mermaid
+graph LR
+  subgraph host[Host]
+    model(Neural Network Model) --> compiler(MicroFlow Compiler)
+  end
+  subgraph target[Target]
+    code(Generated Source Code) --- weights[(Weights)]
+    code --- runtime(MicroFlow Runtime)
+  end
+  compiler --> code
+  compiler --> weights
+```
 
 MicroFlow consists of two primary components: the compiler, represented by the `microflow-macros` crate, and the runtime, represented by the `microflow` crate.
 The compiler, which runs prior to the Rust compiler, is responsible for parsing and pre-processing the model.
@@ -48,8 +56,7 @@ cargo run --example <example-name>
 ```
 Otherwise, to run the example locally, just run the above command in the root directory.
 
-> **Note**
->
+> [!NOTE]
 > For board examples, you might need to install additional tools and configure the runner to make the example work for your setup.
 
 ## Supported Operators
@@ -58,17 +65,17 @@ Currently, MicroFlow supports the following operators and activation functions:
 
 | Operator          | Quantized | Tensor Type            |
 |-------------------|-----------|------------------------|
-| `FullyConnected`  | ✅         | `Tensor2D`             |
-| `Conv2D`          | ✅         | `Tensor4D`             |
-| `DepthwiseConv2D` | ✅         | `Tensor4D`             |
-| `AveragePool2D`   | ✅         | `Tensor4D`             |
-| `Reshape`         | ✅         | `Tensor2D`, `Tensor4D` |
+| `FullyConnected`  | &check;   | `Tensor2D`             |
+| `Conv2D`          | &check;   | `Tensor4D`             |
+| `DepthwiseConv2D` | &check;   | `Tensor4D`             |
+| `AveragePool2D`   | &check;   | `Tensor4D`             |
+| `Reshape`         | &check;   | `Tensor2D`, `Tensor4D` |
 
 | Activation Function | Quantized |
 |---------------------|-----------|
-| `ReLU`              | ✅         |
-| `ReLU6`             | ✅         |
-| `Softmax`           | ✅         |
+| `ReLU`              | &check;   |
+| `ReLU6`             | &check;   |
+| `Softmax`           | &check;   |
 
 These operators and activation functions cover common building blocks for neural networks and enable efficient inference with reduced memory and computational requirements.
 However, MicroFlow's development roadmap includes plans for implementing additional operators and activation functions to expand the range of supported models.
