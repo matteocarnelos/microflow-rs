@@ -1,10 +1,12 @@
 # MicroFlow
-> A [Rust](https://www.rust-lang.org) TinyML Compiler for Neural Network Inference on Embedded Systems
+> A [Rust](https://www.rust-lang.org) TinyML compiler for neural network inference on embedded systems
 
+[![crates.io](https://img.shields.io/crates/v/microflow)](https://crates.io/crates/microflow)
+[![docs.rs](https://img.shields.io/docsrs/microflow)](https://docs.rs/microflow)
 [![github](https://img.shields.io/github/actions/workflow/status/matteocarnelos/microflow-rs/cargo.yml?branch=main)](https://github.com/matteocarnelos/microflow-rs/actions/workflows/cargo.yml)
 
 MicroFlow is a robust and efficient TinyML inference engine designed for deploying machine learning models on embedded systems.
-It was developed by Matteo Carnelos as part of his master's thesis project at the [University of Padova](https://www.unipd.it) in collaboration with [Grepit AB](https://www.grepit.se).
+It was developed by Matteo Carnelos as part of his master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [Grepit AB](https://github.com/GrepitAB).
 
 MicroFlow uses a compiler-based approach, resulting in the following engine structure:
 
@@ -112,4 +114,4 @@ Licensed under either of
 
 at your option.
 
-Copyright © 2023, [Matteo Carnelos](https://github.com/matteocarnelos)
+Copyright © 2024, [Matteo Carnelos](https://github.com/matteocarnelos)

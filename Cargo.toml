@@ -1,7 +1,24 @@
 [package]
 name = "microflow"
-version = "0.1.0"
+description = "A robust and efficient TinyML inference engine for embedded systems"
+authors = ["Matteo Carnelos <matteo.carnelos98@gmail.com>"]
+documentation = "https://docs.rs/microflow"
+repository = "https://github.com/matteocarnelos/microflow"
+categories = ["embedded", "no-std", "science"]
+keywords = ["tinyml"]
+license = "MIT OR Apache-2.0"
+version = "0.1.1"
 edition = "2021"
+include = [
+    "/src/**",
+    "/benches/**",
+    "/tests/**",
+    "/models/**",
+    "/Cargo.toml",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+    "/README.md",
+]
 
 [dependencies]
 microflow-macros = { version = "0.1", path = "microflow-macros" }

@@ -1,13 +1,28 @@
 [package]
 name = "microflow-macros"
-version = "0.1.0"
+description = "Macro crate of the MicroFlow inference engine, namely, the MicroFlow compiler"
+authors = ["Matteo Carnelos <matteo.carnelos98@gmail.com>"]
+documentation = "https://docs.rs/microflow-macros"
+repository = "https://github.com/matteocarnelos/microflow-rs"
+readme = "../README.md"
+categories = ["embedded", "no-std", "science"]
+keywords = ["tinyml"]
+license = "MIT OR Apache-2.0"
+version = "0.1.1"
 edition = "2021"
+include = [
+    "/src/**",
+    "flatbuffers/**",
+    "/Cargo.toml",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+]
 
 [lib]
 proc-macro = true
 
 [dependencies]
-syn = "1.0"
+syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 proc-macro-error = "1.0"
@@ -15,4 +30,4 @@ flatbuffers = "23.1"
 nalgebra = "0.32"
 simba = "0.8"
 byterepr = "0.1"
-structmeta = "0.1"
+structmeta = "0.3"
