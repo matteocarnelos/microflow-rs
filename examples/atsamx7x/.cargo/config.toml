@@ -1,5 +1,5 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-runner = "probe-run --chip ATSAME70Q21B"
+runner = "probe-rs run --chip ATSAME70Q21B"
 rustflags = [
     "-C", "linker=flip-link",
     "-C", "link-arg=-Tlink.x",
