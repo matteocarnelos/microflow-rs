@@ -24,27 +24,27 @@ fn main() -> ! {
     let y_predicted = Sine::predict(matrix![x])[0];
     let y_exact = sinf(x);
     let x_display = uFmt_f32::One(x);
-    uwriteln!(&mut serial, "").void_unwrap();
+    uwriteln!(&mut serial, "").unwrap_infallible();
     uwriteln!(
         &mut serial,
         "Predicted sin({}): {}",
         x_display,
         uFmt_f32::Five(y_predicted)
     )
-    .void_unwrap();
+    .unwrap_infallible();
     uwriteln!(
         &mut serial,
         "Exact sin({}): {}",
         x_display,
         uFmt_f32::Five(y_exact)
     )
-    .void_unwrap();
+    .unwrap_infallible();
     uwriteln!(
         &mut serial,
         "Error: {}",
         uFmt_f32::Five(y_exact - y_predicted)
     )
-    .void_unwrap();
+    .unwrap_infallible();
 
     loop {
         nop();
