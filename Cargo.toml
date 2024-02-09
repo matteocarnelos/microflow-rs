@@ -3,11 +3,11 @@ name = "microflow"
 description = "A robust and efficient TinyML inference engine for embedded systems"
 authors = ["Matteo Carnelos <matteo.carnelos98@gmail.com>"]
 documentation = "https://docs.rs/microflow"
-repository = "https://github.com/matteocarnelos/microflow"
+repository = "https://github.com/matteocarnelos/microflow-rs"
 categories = ["embedded", "no-std", "science"]
 keywords = ["tinyml"]
 license = "MIT OR Apache-2.0"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 include = [
     "/src/**",
