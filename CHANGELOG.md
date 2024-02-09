@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- MicroFlow is now available on [crates.io]() 🎉
+- MicroFlow is now available on [crates.io](https://crates.io/crates/microflow) 🎉
 
 ### Fixed
 
