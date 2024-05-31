@@ -1,6 +1,6 @@
 [package]
 name = "microflow"
-description = "A robust and efficient TinyML inference engine for embedded systems"
+description = "A robust and efficient TinyML inference engine"
 authors = ["Matteo Carnelos <matteo.carnelos98@gmail.com>"]
 documentation = "https://docs.rs/microflow"
 repository = "https://github.com/matteocarnelos/microflow-rs"
