@@ -2,7 +2,10 @@
 #![no_main]
 
 use esp_println::println;
-use hal::{clock::ClockControl, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
+use hal::{
+    clock::ClockControl, peripherals::Peripherals, prelude::*, rtc_cntl::Rtc,
+    system::SystemControl, timer::timg::TimerGroup,
+};
 use libm::sinf;
 use microflow::model;
 use nalgebra::matrix;
@@ -15,13 +18,13 @@ struct Sine;
 #[entry]
 fn main() -> ! {
     let peripherals = Peripherals::take();
-    let system = peripherals.SYSTEM.split();
+    let system = SystemControl::new(peripherals.SYSTEM);
     let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
-    let mut rtc = Rtc::new(peripherals.LPWR);
-    let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
+    let mut rtc = Rtc::new(peripherals.LPWR, None);
+    let timer_group0 = TimerGroup::new_async(peripherals.TIMG0, &clocks);
     let mut wdt0 = timer_group0.wdt;
-    let timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks);
+    let timer_group1 = TimerGroup::new_async(peripherals.TIMG1, &clocks);
     let mut wdt1 = timer_group1.wdt;
 
     rtc.rwdt.disable();
