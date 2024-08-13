@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 esp-println = { version = "0.3", features = ["esp32"] }
 esp-backtrace = { version = "0.5", features = ["esp32", "panic-handler", "print-uart"] }
-hal = { package = "esp-hal", git = "https://github.com/esp-rs/esp-hal", features = ["esp32"] }
+hal = { package = "esp-hal", version = "0.19.0", features = ["esp32"] }
 microflow = { path = "../.." }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 libm = "0.2"
