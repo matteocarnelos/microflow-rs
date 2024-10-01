@@ -112,6 +112,22 @@ Contributors are welcome.
 For major changes, please open an issue first to discuss what you would like to change.
 Please make sure to update tests as appropriate.
 
+## Citation
+
+MicroFlow has been published on [arxiv.org](https://arxiv.org/abs/2409.19432) and can be cited as follows:
+
+```bibtex
+@misc{carnelos2024microflowefficientrustbasedinference,
+    title={MicroFlow: An Efficient Rust-Based Inference Engine for TinyML}, 
+    author={Matteo Carnelos and Francesco Pasti and Nicola Bellotto},
+    year={2024},
+    eprint={2409.19432},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG},
+    url={https://arxiv.org/abs/2409.19432}, 
+}
+```
+
 ## License
 
 Licensed under either of
