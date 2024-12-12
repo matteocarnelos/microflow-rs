@@ -56,6 +56,8 @@ fn main() {
 }
 ```
 
+**[Documentation](https://docs.rs/microflow)**
+
 ## Examples
 
 The examples provided with MicroFlow can be found in the `examples` folder.
