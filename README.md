@@ -116,17 +116,20 @@ Please make sure to update tests as appropriate.
 
 ## Citation
 
-MicroFlow has been published on [arxiv.org](https://arxiv.org/abs/2409.19432) and can be cited as follows:
+The MicroFlow paper has been published in Elsevier's [Internet of Things](https://www.sciencedirect.com/science/article/pii/S2542660525000113) journal and can be cited as follows:
 
 ```bibtex
-@misc{carnelos2024microflowefficientrustbasedinference,
-    title={MicroFlow: An Efficient Rust-Based Inference Engine for TinyML}, 
-    author={Matteo Carnelos and Francesco Pasti and Nicola Bellotto},
-    year={2024},
-    eprint={2409.19432},
-    archivePrefix={arXiv},
-    primaryClass={cs.LG},
-    url={https://arxiv.org/abs/2409.19432}, 
+@article{CARNELOS2025101498,
+  title = {MicroFlow: An Efficient Rust-Based Inference Engine for TinyML},
+  journal = {Internet of Things},
+  volume = {30},
+  pages = {101498},
+  year = {2025},
+  issn = {2542-6605},
+  doi = {https://doi.org/10.1016/j.iot.2025.101498},
+  url = {https://www.sciencedirect.com/science/article/pii/S2542660525000113},
+  author = {Matteo Carnelos and Francesco Pasti and Nicola Bellotto},
+  keywords = {TinyML, Rust, Neural networks, Embedded systems, IoT}
 }
 ```
 
