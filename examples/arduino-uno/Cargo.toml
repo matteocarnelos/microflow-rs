@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-avr-device = "0.5"
+avr-device = { version = "0.7", features = ["atmega328p"] }
 ufmt = "0.2"
 ufmt_float = { git = "https://github.com/tl8roy/ufmt_float" }
 panic-halt = "0.2"
