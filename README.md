@@ -142,4 +142,4 @@ Licensed under either of
 
 at your option.
 
-Copyright © 2024, [Matteo Carnelos](https://github.com/matteocarnelos)
+Copyright © 2025, [Matteo Carnelos](https://github.com/matteocarnelos)
