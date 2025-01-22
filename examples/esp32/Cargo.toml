@@ -4,9 +4,9 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-esp-println = { version = "0.11", features = ["esp32"] }
-esp-backtrace = { version = "0.14", features = ["esp32", "panic-handler", "println"] }
-hal = { package = "esp-hal", version = "0.20", features = ["esp32"] }
+esp-println = { version = "0.13", features = ["esp32"] }
+esp-backtrace = { version = "0.15", features = ["esp32", "panic-handler", "println"] }
+esp_hal = { package = "esp-hal", version = "0.23", features = ["esp32"] }
 microflow = { path = "../.." }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 libm = "0.2"
