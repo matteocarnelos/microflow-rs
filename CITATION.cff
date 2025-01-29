@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: >-
+  MicroFlow: An Efficient Rust-Based Inference Engine for
+  TinyML
+message: >-
+  MicroFlow has been published on arxiv.org and can be cited as follows
+type: software
+authors:
+  - given-names: Matteo
+    family-names: Carnelos
+    affiliation: 'University of Padua, Italy'
+  - given-names: Francesco
+    family-names: Pasti
+    orcid: 'https://orcid.org/0009-0005-4992-3281'
+    affiliation: 'University of Padua, Italy'
+  - given-names: Nicola
+    family-names: Bellotto
+    orcid: 'https://orcid.org/0000-0001-7950-9608'
+    affiliation: 'University of Padua, Italy'
+identifiers:
+  - type: doi
+    value: 10.48550/arXiv.2409.19432
+repository-code: 'https://github.com/matteocarnelos'
+abstract: >-
+  MicroFlow is an open-source TinyML framework for the
+  deployment of Neural Networks (NNs) on embedded systems
+  using the Rust programming language, specifically designed
+  for efficiency and robustness, which is suitable for
+  applications in critical environments
+license: MIT
+commit: 600ebca6d457d1484eb4acf71fb2fba7a9baccef
+version: 0.1.3
+date-released: '2024-09-28'
