@@ -71,17 +71,28 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     let input_type = match input.type_() {
         TensorType::INT8 => quote!(i8),
         TensorType::UINT8 => quote!(u8),
-        _ => unimplemented!(),
+        input_type => abort_call_site!(
+            "unsupported input tensor type: {:?}. Supported input types are INT8 and UINT8",
+            input_type
+        ),
     };
     let input_tensor = match input_shape.len() {
         2 => quote!(Tensor2D),
         4 => quote!(Tensor4D),
-        _ => unimplemented!(),
+        rank => abort_call_site!(
+            "unsupported input tensor rank: {} (shape {:?}). Supported ranks are 2 and 4",
+            rank,
+            input_shape
+        ),
     };
     let input_buffer = match input_shape.len() {
         2 => quote!(Buffer2D),
         4 => quote!(Buffer4D),
-        _ => unimplemented!(),
+        rank => abort_call_site!(
+            "unsupported input tensor rank for buffer mapping: {} (shape {:?}). Supported ranks are 2 and 4",
+            rank,
+            input_shape
+        ),
     };
     let input_scale: Vec<_> = input
         .quantization()
@@ -108,7 +119,10 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             .iter()
             .map(|e| (e as u8).to_token_stream())
             .collect(),
-        _ => unimplemented!(),
+        input_type => abort_call_site!(
+            "unsupported input zero-point tensor type: {:?}. Supported types are INT8 and UINT8",
+            input_type
+        ),
     };
 
     let operators = subgraph.operators().unwrap();
@@ -144,17 +158,28 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     let output_type = match output.type_() {
         TensorType::INT8 => quote!(i8),
         TensorType::UINT8 => quote!(u8),
-        _ => unimplemented!(),
+        output_type => abort_call_site!(
+            "unsupported output tensor type: {:?}. Supported output types are INT8 and UINT8",
+            output_type
+        ),
     };
     let output_tensor = match output_shape.len() {
         2 => quote!(Tensor2D),
         4 => quote!(Tensor4D),
-        _ => unimplemented!(),
+        rank => abort_call_site!(
+            "unsupported output tensor rank: {} (shape {:?}). Supported ranks are 2 and 4",
+            rank,
+            output_shape
+        ),
     };
     let output_buffer = match output_shape.len() {
         2 => quote!(Buffer2D),
         4 => quote!(Buffer4D),
-        _ => unimplemented!(),
+        rank => abort_call_site!(
+            "unsupported output tensor rank for buffer mapping: {} (shape {:?}). Supported ranks are 2 and 4",
+            rank,
+            output_shape
+        ),
     };
 
     let ts = quote! {

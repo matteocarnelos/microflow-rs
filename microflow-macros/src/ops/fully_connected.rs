@@ -1,6 +1,7 @@
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::{convert_ref, DMatrix};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::abort_call_site;
 use quote::{format_ident, quote, ToTokens};
 use simba::scalar::SupersetOf;
 
@@ -43,7 +44,10 @@ pub(crate) fn parse(
         TensorType::UINT8 => Box::new(TokenFullyConnected::<u8>::new(
             operator, tensors, buffers, index,
         )),
-        _ => unimplemented!(),
+        input_type => abort_call_site!(
+            "FullyConnected supports only INT8/UINT8 input tensors, got {:?}",
+            input_type
+        ),
     }
 }
 

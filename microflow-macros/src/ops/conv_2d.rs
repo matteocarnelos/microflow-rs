@@ -6,6 +6,7 @@ use crate::tflite_flatbuffers::tflite::{Buffer, Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use nalgebra::DMatrix;
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::abort_call_site;
 use quote::{format_ident, quote, ToTokens};
 
 /// Represents the tokenized version of the `Conv2D` operator.
@@ -38,7 +39,10 @@ pub(crate) fn parse(
     match input_type {
         TensorType::INT8 => Box::new(TokenConv2D::<i8>::new(operator, tensors, buffers, index)),
         TensorType::UINT8 => Box::new(TokenConv2D::<u8>::new(operator, tensors, buffers, index)),
-        _ => unimplemented!(),
+        input_type => abort_call_site!(
+            "Conv2D supports only INT8/UINT8 input tensors, got {:?}",
+            input_type
+        ),
     }
 }
 

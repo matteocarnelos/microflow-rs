@@ -1,5 +1,6 @@
 use crate::tflite_flatbuffers::tflite::ActivationFunctionType;
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::abort_call_site;
 use quote::{quote, ToTokens};
 
 /// Represents the tokenized version of the [`FusedActivation`].
@@ -27,7 +28,10 @@ impl From<ActivationFunctionType> for TokenFusedActivation {
             ActivationFunctionType::NONE => Self::None,
             ActivationFunctionType::RELU => Self::Relu,
             ActivationFunctionType::RELU6 => Self::Relu6,
-            _ => unimplemented!(),
+            unsupported => abort_call_site!(
+                "unsupported fused activation: {:?}. Supported activations are NONE, RELU, and RELU6",
+                unsupported
+            ),
         }
     }
 }

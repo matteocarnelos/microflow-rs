@@ -3,6 +3,7 @@ use crate::tensor::TokenTensor2D;
 use crate::tflite_flatbuffers::tflite::{Operator, Tensor, TensorType};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::abort_call_site;
 use quote::{quote, ToTokens};
 
 /// Represents the tokenized version of the `Softmax` operator.
@@ -25,7 +26,10 @@ pub(crate) fn parse(
     match input_type {
         TensorType::INT8 => Box::new(TokenSoftmax::<i8>::new(operator, tensors)),
         TensorType::UINT8 => Box::new(TokenSoftmax::<u8>::new(operator, tensors)),
-        _ => unimplemented!(),
+        input_type => abort_call_site!(
+            "Softmax supports only INT8/UINT8 input tensors, got {:?}",
+            input_type
+        ),
     }
 }
 
