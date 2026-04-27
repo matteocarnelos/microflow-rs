@@ -10,6 +10,7 @@ use crate::{
 use libm::logf;
 use nalgebra::SMatrix;
 use simba::scalar::{SubsetOf, SupersetOf};
+use num_traits::float::FloatCore;
 
 /// Computes the L2 norm of a 2-D integer buffer, normalized by batch size.
 ///

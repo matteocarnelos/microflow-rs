@@ -27,7 +27,7 @@ nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 simba = { version = "0.8", default-features = false }
 libm = "0.2"
 cargo-expand = "1.0.110"
-num-traits = "0.2.19"
+num-traits = {version = "0.2.19", default-features = false}
 
 [dev-dependencies]
 ndarray = "0.16.1"

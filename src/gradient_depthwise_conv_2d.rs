@@ -8,6 +8,7 @@ use crate::{
 use core::array;
 use nalgebra::{SMatrix, SVector};
 use simba::scalar::SupersetOf;
+use num_traits::float::FloatCore;
 /// Clips the output gradient and computes backpropagation gradients for a quantized depthwise convolution layer.
 ///
 /// This function prepares the backward pass for a depthwise convolution by first applying
