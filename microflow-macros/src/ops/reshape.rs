@@ -1,6 +1,7 @@
 use crate::tflite_flatbuffers::tflite::{Operator, Tensor};
 use flatbuffers::{ForwardsUOffset, Vector};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::abort_call_site;
 use quote::{quote, ToTokens};
 
 /// Represents the tokenized version of the `Reshape` operator.
@@ -46,7 +47,11 @@ impl ToTokens for TokenReshape {
         let output_tensor = match output_shape.len() {
             2 => quote!(Tensor2D),
             4 => quote!(Tensor4D),
-            _ => unimplemented!(),
+            rank => abort_call_site!(
+                "Reshape supports only output tensor ranks 2 and 4, got rank {} with shape {:?}",
+                rank,
+                output_shape
+            ),
         };
 
         let ts = quote! {
