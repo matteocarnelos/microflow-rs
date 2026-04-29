@@ -145,6 +145,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             BuiltinOperator::AVERAGE_POOL_2D => average_pool_2d::parse(operator, tensors),
             BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
             BuiltinOperator::RESHAPE => Box::new(reshape::parse(operator, tensors)),
+            BuiltinOperator::RESIZE_BILINEAR => resize_bilinear::parse(operator, tensors, buffers, index),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
         layer.to_tokens(&mut layers)
