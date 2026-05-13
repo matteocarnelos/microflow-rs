@@ -20,6 +20,7 @@ MicroFlow-ODT does not change the original code other than few minor adjustments
 
 The method was tested on a simple robot equipped with an ESP32-CAM, by finetuning a generic CNN on data recorded directly on the device,
 achieving 75% final accuracy on the test, a 25% improvement over the original model. The video of the demo is shown below:
+
 [![Watch the video](https://img.youtube.com/vi/xp5rjwH7eYw/hqdefault.jpg)](https://youtu.be/xp5rjwH7eYw)
 
 ## Usage
