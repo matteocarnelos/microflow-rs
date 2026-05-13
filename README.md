@@ -6,7 +6,6 @@
 <h3 align="center">An efficient TinyML finetuning engine</h3>
 
 
-<br>
 This repository contains the On Device Training (ODT) extension to [MicroFlow](https://github.com/matteocarnelos/microflow-rs) by Giovanni Artico as part of their master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [IAS-Lab](https://iaslab.dei.unipd.it/groups/mig/about/).
 The Microflow inference engine was originally developed by Matteo Carnelos as part of his master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [Grepit AB](https://github.com/GrepitAB).
 
@@ -30,8 +29,7 @@ The usage is analogous is similar to the original MicroFlow, with the addition o
 
 Here is a minimal example showcasing the usage of MicroFlow-ODT:
 
-```
-#### Microflow ODT 
+#### Microflow ODT
 ```rust ignore
 use microflow_odt_macros::model;
 
@@ -61,7 +59,7 @@ The system designed needs some additional work compared to a plug-and-play frame
 the `update_layers` has to be called with the batch size used to actually update the layers.
 1. First the model should be first tested in training with incrementally more layers.
 2. At each layer the norm of the gradient of the backpropagation and the one for the weight update should be picked.
-3. As overflows can happen if this isn't the chosen norms are too high, first a run in debug mode on a few batches should be done,then one in release mode to properly assess the performance achieved with the chosen parameters and gather information on the percentage of satuated parameters and parameters that have actually been updated. 
+3. As overflows can happen if this isn't the chosen norms are too high, first a run in debug mode on a few batches should be done, then one in release mode to properly assess the performance achieved with the chosen parameters and gather information on the percentage of saturated parameters and parameters that have actually been updated.
 4. This should be done at each layer, as the addition of new ones should not interfere with the later ones.
 
 ### Results using MicroFlow-ODT
@@ -75,11 +73,11 @@ the `update_layers` has to be called with the batch size used to actually update
 ## Examples
 
 Otherwise, to run the example locally, just run the above command in the root directory.
-For a full example of training on a board, have a look at [the ESP32CAM example](https://github.com/Geostartico/esp32_microflow_train), 
+For a full example of training on a board, have a look at [the ESP32CAM example](https://github.com/Geostartico/esp32_microflow_train),
 which was designed to run on a SunFounder Galaxy RVR but can be adapted to other tasks
 
 > [!NOTE]
-> The datasets must be unzipped, Not all the datasets rquired to run the examples are present for size support
+> The datasets must be unzipped. Not all the datasets required to run the examples are present for size support
 
 ## Supported Operators
 
@@ -87,7 +85,7 @@ The same operations supported in MicroFlow are supported in MicroFlow-ODT other 
 
 ## Tested Models
 
-The models ued to test the training engines can be found in the `models/train` directory.
+The models used to test the training engines can be found in the `models/train` directory.
 These models include:
 
 - LeNet
@@ -98,4 +96,3 @@ These models include:
 ## Citation
 
 TBA
-
