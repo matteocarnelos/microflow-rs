@@ -2,144 +2,97 @@
   <img src="assets/microflow-logo.png" width="180">
 </p>
 
-<h1 align="center">MicroFlow</h1>
-<h3 align="center">A robust and efficient TinyML inference engine</h3>
-<p align="center">
-  <a href="https://crates.io/crates/microflow"><img src="https://img.shields.io/crates/v/microflow"></a>
-  <a href="https://docs.rs/microflow"><img src="https://img.shields.io/docsrs/microflow"></a>
-  <a href="https://github.com/matteocarnelos/microflow-rs/actions/workflows/cargo.yml"><img src="https://img.shields.io/github/actions/workflow/status/matteocarnelos/microflow-rs/cargo.yml?branch=main"></a>
-</p>
+<h1 align="center">MicroFlow-ODT</h1>
+<h3 align="center">An efficient TinyML finetuning engine</h3>
 
-<br>
 
-MicroFlow is a robust and efficient TinyML inference engine designed for deploying machine learning models on embedded systems.
-It was developed by Matteo Carnelos as part of his master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [Grepit AB](https://github.com/GrepitAB).
+This repository contains the On Device Training (ODT) extension to [MicroFlow](https://github.com/matteocarnelos/microflow-rs) by Giovanni Artico as part of their master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [IAS-Lab](https://iaslab.dei.unipd.it/groups/mig/about/).
+The Microflow inference engine was originally developed by Matteo Carnelos as part of his master's thesis project at the [University of Padova](https://www.unipd.it/en/) in collaboration with [Grepit AB](https://github.com/GrepitAB).
 
-MicroFlow uses a compiler-based approach, resulting in the following engine structure:
+MicroFlow-ODT has the following pipeline, based on MicroFlow inference:
 
-```mermaid
-graph LR
-  subgraph host[Host]
-    model(Neural Network Model) --> compiler(MicroFlow Compiler)
-  end
-  subgraph target[Target]
-    code(Generated Source Code) --- weights[(Weights)]
-    code --- runtime(MicroFlow Runtime)
-  end
-  compiler --> code
-  compiler --> weights
-```
+![Microflow Pipeline](assets/implementation%20sheme-10.png)
 
-MicroFlow consists of two primary components: the compiler, represented by the `microflow-macros` crate, and the runtime, represented by the `microflow` crate.
-The compiler, which runs prior to the Rust compiler, is responsible for parsing and pre-processing the model.
-It generates the necessary source code to enable inference on the model.
-On the other hand, the runtime is a `[no_std]` component designed to run on the target MCU.
-It encompasses the implementation of operators, activation functions, and quantization procedures.
+MicroFlow-ODT does not change the original code other than few minor adjustments, and mainly adds `microflow-odt-macros` crate (containing the macros for the trainable networks and gradient functions.
+
+## Microflow-ODT demo
+
+The method was tested on a simple robot equipped with an ESP32-CAM, by finetuning a generic CNN on data recorded directly on the device,
+achieving 75% final accuracy on the test, a 25% improvement over the original model. The video of the demo is shown below:
+
+[![Watch the video](https://img.youtube.com/vi/xp5rjwH7eYw/hqdefault.jpg)](https://youtu.be/xp5rjwH7eYw)
 
 ## Usage
 
 MicroFlow utilizes Rust [Procedural Macros](https://doc.rust-lang.org/reference/procedural-macros.html) as its user interface.
-By applying the `model` macro to a `struct` and providing the model's path, the MicroFlow compiler generates a `predict()` method.
-This method can be called to perform inference on the given model.
-Currently, MicroFlow only supports models in the TensorFlow Lite format (`.tflite`).
+The usage is analogous is similar to the original MicroFlow, with the addition of necessary parameters for training.
 
-Here is a minimal example showcasing the usage of MicroFlow:
+Here is a minimal example showcasing the usage of MicroFlow-ODT:
 
+#### Microflow ODT
 ```rust ignore
-use microflow::model;
+use microflow_odt_macros::model;
 
-#[model("path/to/model.tflite")]
+/*additional arguments:
+  number of layers to train
+  loss
+  skip the last layer
+  backward gradient norms
+  weights gradient norms
+*/
+#[model("path/to/model.tflite", 5, "crossentropy", true, [30000.0,30000.0,0.0], [16000.0,4096.0,1024.0])]
 struct MyModel;
 
 fn main() {
-    let prediction = MyModel::predict(input_data);
+    let model = MyModel::new()
+    for i in 0..batch_size{
+      let prediction = MyModel::predict_train(input_data, label, learning rate);
+    }
+    model.update_layers(batch, learning_rate);
 }
 ```
 
-**[Documentation](https://docs.rs/microflow)**
+## MicroFlow-ODT usage
+
+The system designed needs some additional work compared to a plug-and-play framework like tensorflow.
+- The gradient accumulation is automatically done when `predict_train` is called, however after each batch (of arbitrary size)
+the `update_layers` has to be called with the batch size used to actually update the layers.
+1. First the model should be first tested in training with incrementally more layers.
+2. At each layer the norm of the gradient of the backpropagation and the one for the weight update should be picked.
+3. As overflows can happen if this isn't the chosen norms are too high, first a run in debug mode on a few batches should be done, then one in release mode to properly assess the performance achieved with the chosen parameters and gather information on the percentage of saturated parameters and parameters that have actually been updated.
+4. This should be done at each layer, as the addition of new ones should not interfere with the later ones.
+
+### Results using MicroFlow-ODT
+### CIFAR10-C and OpenLoris-Object Training Results
+
+|| 1 Layer | 2 Layers |
+|-------|-------|-------|
+|OpenLoris-Object| ![Run 1](assets/all_runs1-1.png) | ![Run 1](assets/all_runs2-1.png) |
+|Cifar10-C| ![Run 2](assets/all_runs1-2.png) | ![Run 2](assets/all_runs2-2.png) |
 
 ## Examples
 
-The examples provided with MicroFlow can be found in the `examples` folder.
-To run an example on a target board, `cd` into the board directory for the example (e.g. `examples/arduino-uno`) and run the command:
-```bash ignore
-cargo run --example <example-name>
-```
 Otherwise, to run the example locally, just run the above command in the root directory.
+For a full example of training on a board, have a look at [the ESP32CAM example](https://github.com/Geostartico/esp32_microflow_train),
+which was designed to run on a SunFounder Galaxy RVR but can be adapted to other tasks
 
 > [!NOTE]
-> For board examples, you might need to install additional tools and configure the runner to make the example work for your setup.
+> The datasets must be unzipped. Not all the datasets required to run the examples are present for size support
 
 ## Supported Operators
 
-Currently, MicroFlow supports the following operators and activation functions:
+The same operations supported in MicroFlow are supported in MicroFlow-ODT other than trainable intermediate Softmax activations
 
-| Operator          | Quantized | Tensor Type            |
-|-------------------|-----------|------------------------|
-| `FullyConnected`  | &check;   | `Tensor2D`             |
-| `Conv2D`          | &check;   | `Tensor4D`             |
-| `DepthwiseConv2D` | &check;   | `Tensor4D`             |
-| `AveragePool2D`   | &check;   | `Tensor4D`             |
-| `Reshape`         | &check;   | `Tensor2D`, `Tensor4D` |
+## Tested Models
 
-| Activation Function | Quantized |
-|---------------------|-----------|
-| `ReLU`              | &check;   |
-| `ReLU6`             | &check;   |
-| `Softmax`           | &check;   |
-
-These operators and activation functions cover common building blocks for neural networks and enable efficient inference with reduced memory and computational requirements.
-However, MicroFlow's development roadmap includes plans for implementing additional operators and activation functions to expand the range of supported models.
-
-## Tested Models and MCUs
-
-The `examples` folder contains the code used to test MicroFlow on different MCUs, including:
-
-- ESP32 (32-bit Xtensa)
-- ATSAMV71 (32-bit Cortex-M7F)
-- nRF52840 (32-bit Cortex-M4F)
-- LM3S6965 (32-bit Cortex-M3)
-- ATmega328 (8-bit AVR)
-
-The models ued to test the inference engines can be found in the `models` directory.
+The models used to test the training engines can be found in the `models/train` directory.
 These models include:
 
-- A sine predictor
-- A speech command recognizer (TinyConv)
-- A person detector (MobileNet v1)
-
-## Contributing
-
-Contributors are welcome.
-For major changes, please open an issue first to discuss what you would like to change.
-Please make sure to update tests as appropriate.
+- LeNet
+- MobileNetv1
+- Sine predictor
+- Speech recognizer
 
 ## Citation
 
-The MicroFlow paper has been published in Elsevier's [Internet of Things](https://www.sciencedirect.com/science/article/pii/S2542660525000113) journal and can be cited as follows:
-
-```bibtex
-@article{CARNELOS2025101498,
-  title = {MicroFlow: An Efficient Rust-Based Inference Engine for TinyML},
-  journal = {Internet of Things},
-  volume = {30},
-  pages = {101498},
-  year = {2025},
-  issn = {2542-6605},
-  doi = {https://doi.org/10.1016/j.iot.2025.101498},
-  url = {https://www.sciencedirect.com/science/article/pii/S2542660525000113},
-  author = {Matteo Carnelos and Francesco Pasti and Nicola Bellotto},
-  keywords = {TinyML, Rust, Neural networks, Embedded systems, IoT}
-}
-```
-
-## License
-
-Licensed under either of
-
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-
-at your option.
-
-Copyright © 2025, [Matteo Carnelos](https://github.com/matteocarnelos)
+TBA

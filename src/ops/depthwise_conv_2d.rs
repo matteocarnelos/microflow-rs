@@ -16,6 +16,7 @@ pub struct DepthwiseConv2DOptions {
 
 /// Performs the DepthwiseConv2D operation.
 /// Returns a 4-dimensional output tensor containing the result of the operation.
+/// Takes ownership of the Tensor struct, is useful for memory optimization purposes.
 ///
 /// # Arguments
 /// * `input` - The 4-dimensional input tensor
@@ -38,6 +39,41 @@ pub fn depthwise_conv_2d<
     const OUTPUT_COLS: usize,
 >(
     input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    weights: &Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: DepthwiseConv2DOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+        Buffer2D<f32, WEIGHTS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
+    depthwise_conv_2d_borrow(&input, weights, output_scale, output_zero_point, options, constants)
+}
+/// Performs the DepthwiseConv2D operation.
+/// Returns a 4-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 4-dimensional input tensor
+/// * `weights` - The 4-dimensional tensor representing the weights of the operator
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`DepthwiseConv2DOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
+pub fn depthwise_conv_2d_borrow<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const WEIGHTS_ROWS: usize,
+    const WEIGHTS_COLS: usize,
+    const WEIGHTS_CHANS: usize,
+    const WEIGHTS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: &Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
     weights: &Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],

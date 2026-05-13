@@ -1,4 +1,5 @@
 use libm::roundf;
+use nalgebra::SMatrix;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
@@ -12,6 +13,7 @@ pub struct FullyConnectedOptions {
 
 /// Performs the FullyConnected operation.
 /// Returns a 2-dimensional output tensor containing the result of the operation.
+/// Takes ownership of the Tensor struct, is useful for memory optimization purposes.
 ///
 /// # Arguments
 /// * `input` - The 2-dimensional input tensor
@@ -28,6 +30,44 @@ pub fn fully_connected<
     const WEIGHTS_COLS: usize,
 >(
     input: Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+    weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: FullyConnectedOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_COLS, 1>,
+        f32,
+        Buffer2D<i32, 1, WEIGHTS_COLS>,
+        i32,
+    ),
+) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
+    fully_connected_borrow(
+        &input,
+        weights,
+        output_scale,
+        output_zero_point,
+        options,
+        constants,
+    )
+}
+/// Performs the FullyConnected operation.
+/// Returns a 2-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 2-dimensional input tensor
+/// * `weights` - The 2-dimensional tensor representing the weights of the operator
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`FullyConnectedOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
+pub fn fully_connected_borrow<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const WEIGHTS_COLS: usize,
+>(
+    input: &Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
     weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
@@ -81,6 +121,76 @@ pub fn fully_connected<
     Tensor2D::new(output, output_scale, output_zero_point)
 }
 
+// pub fn fully_connected_diff_borrow<
+//     T: Quantized,
+//     const INPUT_ROWS: usize,
+//     const INPUT_COLS: usize,
+//     const WEIGHTS_COLS: usize,
+// >(
+//     input: &Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+//     weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+//     weights_diff: &Buffer2D<f32, INPUT_COLS, WEIGHTS_COLS>,
+//     output_scale: [f32; 1],
+//     output_zero_point: [T; 1],
+//     options: FullyConnectedOptions,
+//     constants: (
+//         Buffer2D<f32, WEIGHTS_COLS, 1>,
+//         f32,
+//         Buffer2D<i32, 1, WEIGHTS_COLS>,
+//         i32,
+//     ),
+// ) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
+//     let x: (
+//         Buffer2D<i32, INPUT_ROWS, WEIGHTS_COLS>,
+//         Buffer2D<i32, INPUT_ROWS, 1>,
+//         SMatrix<f32, INPUT_ROWS, WEIGHTS_COLS>,
+//     ) = (
+//         // Perform the dot product between the input and the weights
+//         Buffer2D::from_fn(|i, j| {
+//             input
+//                 .buffer
+//                 .row(i)
+//                 .iter()
+//                 .zip(weights.buffer.column(j).iter())
+//                 .fold(0i32, |acc, (i, w)| {
+//                     acc + i32::from_subset(i) * i32::from_subset(w)
+//                 })
+//         }),
+//         // Perform the row-sum of the weights
+//         Buffer2D::from_fn(|i, _| {
+//             input
+//                 .buffer
+//                 .row(i)
+//                 .fold(0i32, |acc, e| acc + i32::from_subset(&e))
+//                 * i32::from_subset(&weights.zero_point[0])
+//         }),
+//         SMatrix::from_fn(|i, j| {
+//             input
+//                 .buffer
+//                 .row(i)
+//                 .iter()
+//                 .zip(weights_diff.column(j).iter())
+//                 .fold(0f32, |acc, (i, w)| acc + f32::from_subset(i) * w)
+//         }),
+//     );
+//     // Combine the constant values and the variants to obtain the output
+//     let output = Buffer2D::from_fn(|i, j| {
+//         let y = T::from_superset_unchecked(&roundf(
+//             f32::from_subset(&output_zero_point[0])
+//                 + constants.0[j]
+//                 + constants.1
+//                     * (f32::from_subset(&(x.0[(i, j)] - x.1[i] - constants.2[j] + constants.3))
+//                         + f32::from_subset(&(x.2[(i, j)] - x.1[i] - constants.2[j] + constants.3))),
+//         ));
+//         // Apply the fused activation function (if any)
+//         match options.fused_activation {
+//             FusedActivation::None => y,
+//             FusedActivation::Relu => relu(y, output_zero_point[0]),
+//             FusedActivation::Relu6 => relu6(y, output_scale[0], output_zero_point[0]),
+//         }
+//     });
+//     Tensor2D::new(output, output_scale, output_zero_point)
+// }
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;

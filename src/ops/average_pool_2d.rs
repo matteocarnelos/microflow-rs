@@ -17,6 +17,7 @@ pub struct AveragePool2DOptions {
 
 /// Performs the AveragePool2D operation.
 /// Returns a 4-dimensional output tensor containing the result of the operation.
+/// Takes ownership of the Tensor struct, is useful for memory optimization purposes.
 ///
 /// # Arguments
 /// * `input` - The 4-dimensional input tensor
@@ -37,6 +38,36 @@ pub fn average_pool_2d<
     const OUTPUT_COLS: usize,
 >(
     input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    _filter_shape: (Const<FILTER_ROWS>, Const<FILTER_COLS>),
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: AveragePool2DOptions,
+    constants: (f32, f32),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
+    average_pool_2d_borrow(&input, _filter_shape, output_scale, output_zero_point, options, constants)
+}
+/// Performs the AveragePool2D operation.
+/// Returns a 4-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 4-dimensional input tensor
+/// * `_filter_shape` - The phantom shape of the filter
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`AveragePool2DOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
+pub fn average_pool_2d_borrow<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const FILTER_ROWS: usize,
+    const FILTER_COLS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: &Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
     _filter_shape: (Const<FILTER_ROWS>, Const<FILTER_COLS>),
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
