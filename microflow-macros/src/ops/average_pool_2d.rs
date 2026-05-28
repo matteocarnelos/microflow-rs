@@ -16,6 +16,7 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
     pub(crate) view_padding: TokenTensorViewPadding,
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (f32, f32),
+    pub(crate) backend: TokenStream2,
 }
 
 /// Parses the [`TokenAveragePool2D`] struct from the given operator.
@@ -27,12 +28,13 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
+    backend: &TokenStream2,
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenAveragePool2D::<i8>::new(operator, tensors)),
-        TensorType::UINT8 => Box::new(TokenAveragePool2D::<u8>::new(operator, tensors)),
+        TensorType::INT8 => Box::new(TokenAveragePool2D::<i8>::new(operator, tensors, backend)),
+        TensorType::UINT8 => Box::new(TokenAveragePool2D::<u8>::new(operator, tensors, backend)),
         input_type => abort_call_site!(
             "AveragePool2D supports only INT8/UINT8 input tensors, got {:?}",
             input_type
@@ -47,7 +49,11 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
     /// * `operator` - The model operator as an [`Operator`]
     /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
     ///
-    pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
+    pub(crate) fn new(
+        operator: Operator,
+        tensors: Vector<ForwardsUOffset<Tensor>>,
+        backend: &TokenStream2,
+    ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
         let output = TokenTensor4D::from_empty_tensor(
@@ -65,6 +71,7 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
             view_padding: options.padding().into(),
             strides: (options.stride_h() as usize, options.stride_w() as usize),
             constants,
+            backend: backend.clone(),
         }
     }
 
@@ -93,10 +100,11 @@ impl<T: TokenQuantized> ToTokens for TokenAveragePool2D<T> {
         let view_padding = self.view_padding;
         let (strides_0, strides_1) = self.strides;
         let (constants_0, constants_1) = self.constants;
+        let backend = &self.backend;
 
         let ts = quote! {
             let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> =
-                microflow::ops::average_pool_2d(
+                microflow::ops::average_pool_2d::<#backend, _, _, _, _, _, _, _, _>(
                     input,
                     (nalgebra::Const::<#filter_shape_0>, nalgebra::Const::<#filter_shape_1>),
                     [#(#output_scale),*],
@@ -131,6 +139,7 @@ mod tests {
             view_padding: TokenTensorViewPadding::Same,
             strides: (1, 1),
             constants: (3., 4.),
+            backend: quote!(microflow::backend::SequentialBackend),
         }
     }
 
@@ -157,7 +166,7 @@ mod tests {
             layer.to_token_stream().to_string(),
             quote! {
                 let input: microflow::tensor::Tensor4D<_, 1usize, 2usize, 3usize, 2usize, 1usize> =
-                    microflow::ops::average_pool_2d(
+                    microflow::ops::average_pool_2d::<microflow::backend::SequentialBackend, _, _, _, _, _, _, _, _>(
                         input,
                         (nalgebra::Const::<2usize>, nalgebra::Const::<3usize>),
                         [0.1f32],

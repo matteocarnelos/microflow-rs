@@ -19,6 +19,7 @@ pub(crate) struct TokenFullyConnected<T: TokenQuantized> {
     pub(crate) constants: (TokenBuffer2D<f32>, f32, TokenBuffer2D<i32>, i32),
     pub(crate) index: usize,
     pub(crate) reshape: bool,
+    pub(crate) backend: TokenStream2,
 }
 
 /// Parses the [`TokenFullyConnected`] struct from the given operator.
@@ -34,15 +35,16 @@ pub(crate) fn parse(
     tensors: Vector<ForwardsUOffset<Tensor>>,
     buffers: Vector<ForwardsUOffset<Buffer>>,
     index: usize,
+    backend: &TokenStream2,
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
         TensorType::INT8 => Box::new(TokenFullyConnected::<i8>::new(
-            operator, tensors, buffers, index,
+            operator, tensors, buffers, index, backend,
         )),
         TensorType::UINT8 => Box::new(TokenFullyConnected::<u8>::new(
-            operator, tensors, buffers, index,
+            operator, tensors, buffers, index, backend,
         )),
         input_type => abort_call_site!(
             "FullyConnected supports only INT8/UINT8 input tensors, got {:?}",
@@ -65,6 +67,7 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         tensors: Vector<ForwardsUOffset<Tensor>>,
         buffers: Vector<ForwardsUOffset<Buffer>>,
         index: usize,
+        backend: &TokenStream2,
     ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor2D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -86,6 +89,7 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
             reshape: input.shape.len() != 2,
             constants,
             index,
+            backend: backend.clone(),
         }
     }
 
@@ -138,11 +142,12 @@ impl<T: TokenQuantized> ToTokens for TokenFullyConnected<T> {
         let output_zero_point = self.output.zero_point[0];
         let fused_activation = self.fused_activation;
         let (constants_0, constants_1, constants_2, constants_3) = &self.constants;
+        let backend = &self.backend;
 
         let ts = quote! {
             const #weights_ident: #weights_type = #weights;
             let input: microflow::tensor::Tensor2D<_, #(#output_shape),*, 1usize> =
-                microflow::ops::fully_connected(
+                microflow::ops::fully_connected::<#backend, _, _, _, _>(
                     input #reshape,
                     &#weights_ident,
                     [#output_scale],
@@ -189,6 +194,7 @@ mod tests {
             ),
             index: 0,
             reshape: false,
+            backend: quote!(microflow::backend::SequentialBackend),
         }
     }
 
@@ -234,7 +240,7 @@ mod tests {
             quote! {
                 const weights_0: microflow::tensor::Tensor2D<i8, 2usize, 3usize, 1usize> = #weights;
                 let input: microflow::tensor::Tensor2D<_, 1usize, 3usize, 1usize> =
-                    microflow::ops::fully_connected(
+                    microflow::ops::fully_connected::<microflow::backend::SequentialBackend, _, _, _, _>(
                         input,
                         &weights_0,
                         [0.9f32],

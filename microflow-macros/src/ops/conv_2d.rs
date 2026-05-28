@@ -18,6 +18,7 @@ pub(crate) struct TokenConv2D<T: TokenQuantized> {
     pub(crate) strides: (usize, usize),
     pub(crate) constants: (TokenBuffer2D<f32>, TokenBuffer2D<f32>),
     pub(crate) index: usize,
+    pub(crate) backend: TokenStream2,
 }
 
 /// Parses the [`TokenConv2D`] struct from the given operator.
@@ -33,12 +34,13 @@ pub(crate) fn parse(
     tensors: Vector<ForwardsUOffset<Tensor>>,
     buffers: Vector<ForwardsUOffset<Buffer>>,
     index: usize,
+    backend: &TokenStream2,
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenConv2D::<i8>::new(operator, tensors, buffers, index)),
-        TensorType::UINT8 => Box::new(TokenConv2D::<u8>::new(operator, tensors, buffers, index)),
+        TensorType::INT8 => Box::new(TokenConv2D::<i8>::new(operator, tensors, buffers, index, backend)),
+        TensorType::UINT8 => Box::new(TokenConv2D::<u8>::new(operator, tensors, buffers, index, backend)),
         input_type => abort_call_site!(
             "Conv2D supports only INT8/UINT8 input tensors, got {:?}",
             input_type
@@ -60,6 +62,7 @@ impl<T: TokenQuantized> TokenConv2D<T> {
         tensors: Vector<ForwardsUOffset<Tensor>>,
         buffers: Vector<ForwardsUOffset<Buffer>>,
         index: usize,
+        backend: &TokenStream2,
     ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -80,6 +83,7 @@ impl<T: TokenQuantized> TokenConv2D<T> {
             strides: (options.stride_h() as usize, options.stride_w() as usize),
             constants,
             index,
+            backend: backend.clone(),
         }
     }
 
@@ -126,11 +130,12 @@ impl<T: TokenQuantized> ToTokens for TokenConv2D<T> {
         let view_padding = self.view_padding;
         let (strides_0, strides_1) = self.strides;
         let (constants_0, constants_1) = &self.constants;
+        let backend = &self.backend;
 
         let ts = quote! {
             const #filters_ident: #filters_type = #filters;
             let input: microflow::tensor::Tensor4D<_, #(#output_shape),*, 1usize> =
-                microflow::ops::conv_2d(
+                microflow::ops::conv_2d::<#backend, _, _, _, _, _, _, _, _, _, _>(
                     input,
                     &#filters_ident,
                     [#(#output_scale),*],
@@ -184,6 +189,7 @@ mod tests {
                 TokenBuffer2D::from(dmatrix![33., 34.]),
             ),
             index: 0,
+            backend: quote!(microflow::backend::SequentialBackend),
         }
     }
 

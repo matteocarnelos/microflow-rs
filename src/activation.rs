@@ -3,6 +3,7 @@ use core::cmp::{max, min};
 use libm::expf;
 
 /// Represents the supported activation functions.
+#[derive(Copy, Clone)]
 pub enum FusedActivation {
     /// The identity activation function.
     None,

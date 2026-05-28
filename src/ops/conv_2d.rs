@@ -4,6 +4,7 @@ use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
+use crate::backend::Backend;
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::{Tensor4D, TensorView, TensorViewPadding};
@@ -26,6 +27,7 @@ pub struct Conv2DOptions {
 /// * `constants` - Constant values coming from the pre-processing phase
 ///
 pub fn conv_2d<
+    B: Backend,
     T: Quantized,
     const INPUT_ROWS: usize,
     const INPUT_COLS: usize,
@@ -47,7 +49,7 @@ pub fn conv_2d<
         Buffer2D<f32, FILTERS_QUANTS, 1>,
     ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, FILTERS_BATCHES, 1> {
-    let output = [Buffer2D::from_fn(|i, j| {
+    let output = [B::from_fn(|i, j| {
         // Extract the view using the view extraction algorithm
         let view: TensorView<T, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
@@ -111,6 +113,7 @@ pub fn conv_2d<
 mod tests {
     use nalgebra::matrix;
 
+    use crate::backend::SequentialBackend;
     use crate::tensor::Tensor2D;
 
     use super::*;
@@ -168,7 +171,7 @@ mod tests {
     #[test]
     fn conv_2d_layer() {
         assert_eq!(
-            conv_2d(
+            conv_2d::<SequentialBackend, _, _, _, _, _, _, _, _, _, _>(
                 INPUT,
                 &FILTERS,
                 OUTPUT_SCALE,

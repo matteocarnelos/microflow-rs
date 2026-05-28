@@ -3,8 +3,11 @@ use nalgebra::Scalar;
 use simba::scalar::{SubsetOf, SupersetOf};
 
 /// Represents the trait to constrain a type to be quantized.
-pub trait Quantized: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> {}
-impl<T: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
+pub trait Quantized: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> + Send + Sync + Default {}
+impl<T: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> + Send + Sync + Default> Quantized
+    for T
+{
+}
 
 /// Performs quantization on the given floating-point input.
 ///

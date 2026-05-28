@@ -12,7 +12,7 @@ use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, ItemStruct};
+use syn::{parse_macro_input, ItemStruct, Path};
 
 use crate::tflite_flatbuffers::tflite::TensorType;
 use ops::*;
@@ -34,13 +34,18 @@ mod tflite_flatbuffers;
 struct Args {
     #[struct_meta(unnamed)]
     path: LitStr,
+    #[struct_meta(unnamed)]
+    backend: Option<Path>,
 }
 
 /// The entry point of MicroFlow.
 /// This attribute-like procedural macro can be placed on `structs` to implement the `predict()`
 /// function based on the given model.
-/// The macro takes as input the path of the model, which must be in the TensorFlow Lite format
-/// (`.tflite`).
+///
+/// # Arguments
+/// * `path` - Path to the `.tflite` model file (mandatory)
+/// * `backend` - Optional backend type implementing `microflow::backend::Backend`.
+///   Defaults to `microflow::backend::SequentialBackend`, which just does the jobs synchronously.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -56,6 +61,12 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     let model = root_as_model(&buf).unwrap_or_else(|_| {
         abort_call_site!("invalid model, please provide a valid TensorFlow Lite model")
     });
+
+    // Resolve the backend type: use the user-supplied path or fall back to SequentialBackend.
+    let backend_ty: TokenStream2 = match args.backend {
+        Some(path) => path.to_token_stream(),
+        None => quote!(microflow::backend::SequentialBackend),
+    };
 
     let ident = &item.ident;
 
@@ -136,13 +147,17 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
                 .deprecated_builtin_code() as i32,
         ) {
             BuiltinOperator::FULLY_CONNECTED => {
-                fully_connected::parse(operator, tensors, buffers, index)
+                fully_connected::parse(operator, tensors, buffers, index, &backend_ty)
             }
             BuiltinOperator::DEPTHWISE_CONV_2D => {
-                depthwise_conv_2d::parse(operator, tensors, buffers, index)
+                depthwise_conv_2d::parse(operator, tensors, buffers, index, &backend_ty)
             }
-            BuiltinOperator::CONV_2D => conv_2d::parse(operator, tensors, buffers, index),
-            BuiltinOperator::AVERAGE_POOL_2D => average_pool_2d::parse(operator, tensors),
+            BuiltinOperator::CONV_2D => {
+                conv_2d::parse(operator, tensors, buffers, index, &backend_ty)
+            }
+            BuiltinOperator::AVERAGE_POOL_2D => {
+                average_pool_2d::parse(operator, tensors, &backend_ty)
+            }
             BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
             BuiltinOperator::RESHAPE => Box::new(reshape::parse(operator, tensors)),
             BuiltinOperator::TRANSPOSE => transpose::parse(operator, tensors, buffers),

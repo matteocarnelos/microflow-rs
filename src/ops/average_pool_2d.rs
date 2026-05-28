@@ -5,10 +5,11 @@ use nalgebra::Const;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
-use crate::buffer::Buffer2D;
+use crate::backend::Backend;
 use crate::quantize::Quantized;
 use crate::tensor::{Tensor4D, TensorView, TensorViewPadding};
 
+#[derive(Copy, Clone)]
 pub struct AveragePool2DOptions {
     pub fused_activation: FusedActivation,
     pub view_padding: TensorViewPadding,
@@ -27,6 +28,7 @@ pub struct AveragePool2DOptions {
 /// * `constants` - Constant values coming from the pre-processing phase
 ///
 pub fn average_pool_2d<
+    B: Backend,
     T: Quantized,
     const INPUT_ROWS: usize,
     const INPUT_COLS: usize,
@@ -43,7 +45,7 @@ pub fn average_pool_2d<
     options: AveragePool2DOptions,
     constants: (f32, f32),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, INPUT_CHANS, 1> {
-    let output = [Buffer2D::from_fn(|i, j| {
+    let output = [B::from_fn(|i, j| {
         // Extract the view using the view extraction algorithm
         let view: TensorView<T, FILTER_ROWS, FILTER_COLS, INPUT_CHANS> =
             input.view((i, j), 0, options.view_padding, options.strides);
@@ -68,6 +70,8 @@ pub fn average_pool_2d<
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;
+
+    use crate::backend::SequentialBackend;
 
     use super::*;
 
@@ -100,7 +104,7 @@ mod tests {
     #[test]
     fn average_pool_2d_layer() {
         assert_eq!(
-            average_pool_2d(
+            average_pool_2d::<SequentialBackend, _, _, _, _, _, _, _, _>(
                 INPUT,
                 FILTER_SHAPE,
                 OUTPUT_SCALE,

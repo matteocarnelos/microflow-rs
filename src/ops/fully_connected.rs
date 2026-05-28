@@ -2,10 +2,12 @@ use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
+use crate::backend::Backend;
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::Tensor2D;
 
+#[derive(Copy, Clone)]
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
 }
@@ -22,6 +24,7 @@ pub struct FullyConnectedOptions {
 /// * `constants` - Constant values coming from the pre-processing phase
 ///
 pub fn fully_connected<
+    B: Backend,
     T: Quantized,
     const INPUT_ROWS: usize,
     const INPUT_COLS: usize,
@@ -64,7 +67,7 @@ pub fn fully_connected<
         }),
     );
     // Combine the constant values and the variants to obtain the output
-    let output = Buffer2D::from_fn(|i, j| {
+    let output = B::from_fn(|i, j| {
         let y = T::from_superset_unchecked(&roundf(
             f32::from_subset(&output_zero_point[0])
                 + constants.0[j]
@@ -84,6 +87,8 @@ pub fn fully_connected<
 #[cfg(test)]
 mod tests {
     use nalgebra::matrix;
+
+    use crate::backend::SequentialBackend;
 
     use super::*;
 
@@ -134,7 +139,7 @@ mod tests {
     #[test]
     fn fully_connected_layer() {
         assert_eq!(
-            fully_connected(
+            fully_connected::<SequentialBackend, _, _, _, _>(
                 INPUT,
                 &WEIGHTS,
                 OUTPUT_SCALE,
