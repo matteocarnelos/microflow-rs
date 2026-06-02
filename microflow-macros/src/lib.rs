@@ -143,9 +143,18 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             }
             BuiltinOperator::CONV_2D => conv_2d::parse(operator, tensors, buffers, index),
             BuiltinOperator::AVERAGE_POOL_2D => average_pool_2d::parse(operator, tensors),
+            BuiltinOperator::MAX_POOL_2D => max_pool_2d::parse(operator, tensors),
             BuiltinOperator::SOFTMAX => softmax::parse(operator, tensors),
             BuiltinOperator::RESHAPE => Box::new(reshape::parse(operator, tensors)),
             BuiltinOperator::TRANSPOSE => transpose::parse(operator, tensors, buffers),
+            BuiltinOperator::ADD => add::parse(operator, tensors, buffers, index),
+            BuiltinOperator::MUL => mul::parse(operator, tensors, buffers, index),
+            BuiltinOperator::CONCATENATION => {
+                concatenation::parse(operator, tensors, buffers, index)
+            }
+            BuiltinOperator::PAD | BuiltinOperator::PADV2 => pad::parse(operator, tensors, buffers),
+            BuiltinOperator::LOGISTIC => logistic::parse(operator, tensors),
+            BuiltinOperator::TANH => tanh::parse(operator, tensors),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
         layer.to_tokens(&mut layers)

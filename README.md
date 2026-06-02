@@ -80,7 +80,14 @@ Currently, MicroFlow supports the following operators and activation functions:
 | `Conv2D`          | &check;   | `Tensor4D`             |
 | `DepthwiseConv2D` | &check;   | `Tensor4D`             |
 | `AveragePool2D`   | &check;   | `Tensor4D`             |
+| `MaxPool2D`       | &check;   | `Tensor4D`             |
 | `Reshape`         | &check;   | `Tensor2D`, `Tensor4D` |
+| `Add`             | &check;   | `Tensor2D`, `Tensor4D` |
+| `Mul`             | &check;   | `Tensor2D`, `Tensor4D` |
+| `Concatenation`   | &check;   | `Tensor4D`             |
+| `Pad`, `PadV2`    | &check;   | `Tensor4D`             |
+| `Logistic`        | &check;   | `Tensor2D`, `Tensor4D` |
+| `Tanh`            | &check;   | `Tensor2D`, `Tensor4D` |
 
 | Activation Function | Quantized |
 |---------------------|-----------|
