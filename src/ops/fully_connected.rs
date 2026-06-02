@@ -5,6 +5,13 @@ use crate::activation::{relu, relu6, FusedActivation};
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::Tensor2D;
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use crate::backend::quantize_multiplier;
+
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use cmsis_nn_rs::fully_connected::{fully_connected_s8, FcParams};
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use cmsis_nn_rs::{Dims, NNContext, PerTensorQuantParams};
 
 pub struct FullyConnectedOptions {
     pub fused_activation: FusedActivation,
@@ -22,6 +29,48 @@ pub struct FullyConnectedOptions {
 /// * `constants` - Constant values coming from the pre-processing phase
 ///
 pub fn fully_connected<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const WEIGHTS_COLS: usize,
+>(
+    input: Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+    weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: FullyConnectedOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_COLS, 1>,
+        f32,
+        Buffer2D<i32, 1, WEIGHTS_COLS>,
+        i32,
+    ),
+) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
+    #[cfg(feature = "cmsis-nn")]
+    {
+        return fully_connected_cmsis_nn(
+            input,
+            weights,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        );
+    }
+    #[cfg(not(feature = "cmsis-nn"))]
+    {
+        fully_connected_rust(
+            input,
+            weights,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        )
+    }
+}
+
+fn fully_connected_rust<
     T: Quantized,
     const INPUT_ROWS: usize,
     const INPUT_COLS: usize,
@@ -79,6 +128,106 @@ pub fn fully_connected<
         }
     });
     Tensor2D::new(output, output_scale, output_zero_point)
+}
+
+#[cfg(feature = "cmsis-nn")]
+fn fully_connected_cmsis_nn<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const WEIGHTS_COLS: usize,
+>(
+    input: Tensor2D<T, INPUT_ROWS, INPUT_COLS, 1>,
+    weights: &Tensor2D<T, INPUT_COLS, WEIGHTS_COLS, 1>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: FullyConnectedOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_COLS, 1>,
+        f32,
+        Buffer2D<i32, 1, WEIGHTS_COLS>,
+        i32,
+    ),
+) -> Tensor2D<T, INPUT_ROWS, WEIGHTS_COLS, 1> {
+    #[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+    {
+        let (multiplier, shift) = quantize_multiplier(constants.1);
+        let quant = PerTensorQuantParams::new(multiplier, shift);
+        let output_offset = i32::from_subset(&output_zero_point[0]);
+        let input_offset = -i32::from_subset(&input.zero_point[0]);
+        let filter_offset = -i32::from_subset(&weights.zero_point[0]);
+
+        let activation_range = match options.fused_activation {
+            FusedActivation::None => (i32::from(i8::MIN), i32::from(i8::MAX)),
+            FusedActivation::Relu => (output_offset.max(0), i32::from(i8::MAX)),
+            FusedActivation::Relu6 => (
+                output_offset.max(0),
+                i32::from_subset(&crate::quantize::quantize::<i8>(
+                    6.0,
+                    output_scale[0],
+                    output_zero_point[0],
+                )),
+            ),
+        };
+
+        let fc_params = FcParams::new(
+            input_offset,
+            filter_offset,
+            output_offset,
+            activation_range,
+        );
+
+        let input_dims = Dims::new(1, 1, 1, INPUT_COLS as i32);
+        let filter_dims = Dims::new(WEIGHTS_COLS as i32, 1, 1, INPUT_COLS as i32);
+        let bias_dims = Dims::new(1, 1, 1, WEIGHTS_COLS as i32);
+        let output_dims = Dims::new(1, 1, 1, WEIGHTS_COLS as i32);
+        let ctx = NNContext::default();
+
+        // Approximate raw int32 bias domain from preprocessed constants.
+        let bias: [i32; WEIGHTS_COLS] = core::array::from_fn(|j| {
+            roundf(constants.0[j] / constants.1) as i32
+        });
+
+        let kernel_data: &[i8] = unsafe {
+            core::slice::from_raw_parts(weights.buffer.as_ptr() as *const i8, INPUT_COLS * WEIGHTS_COLS)
+        };
+
+        let output = Buffer2D::from_fn(|row, col| {
+            let mut input_row = [0i8; INPUT_COLS];
+            for i in 0..INPUT_COLS {
+                let v = i32::from_subset(&input.buffer[(row, i)]);
+                input_row[i] = v.clamp(i32::from(i8::MIN), i32::from(i8::MAX)) as i8;
+            }
+            let mut output_row = [0i8; WEIGHTS_COLS];
+            let _ = fully_connected_s8(
+                &ctx,
+                &fc_params,
+                &quant,
+                &input_dims,
+                &input_row,
+                &filter_dims,
+                kernel_data,
+                &bias_dims,
+                &bias,
+                &output_dims,
+                &mut output_row,
+            );
+            T::from_superset_unchecked(&(output_row[col] as i32))
+        });
+        return Tensor2D::new(output, output_scale, output_zero_point);
+    }
+
+    #[cfg(not(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none")))]
+    {
+        fully_connected_rust(
+            input,
+            weights,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        )
+    }
 }
 
 #[cfg(test)]

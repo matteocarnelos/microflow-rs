@@ -47,6 +47,52 @@ pub fn depthwise_conv_2d<
         Buffer2D<f32, WEIGHTS_QUANTS, 1>,
     ),
 ) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
+    #[cfg(feature = "cmsis-nn")]
+    {
+        return depthwise_conv_2d_cmsis_nn(
+            input,
+            weights,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        );
+    }
+    #[cfg(not(feature = "cmsis-nn"))]
+    {
+        depthwise_conv_2d_rust(
+            input,
+            weights,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        )
+    }
+}
+
+fn depthwise_conv_2d_rust<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const WEIGHTS_ROWS: usize,
+    const WEIGHTS_COLS: usize,
+    const WEIGHTS_CHANS: usize,
+    const WEIGHTS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    weights: &Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: DepthwiseConv2DOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+        Buffer2D<f32, WEIGHTS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
     let output = [Buffer2D::from_fn(|i, j| {
         // Extract the view using the view extraction algorithm
         let view: TensorView<T, WEIGHTS_ROWS, WEIGHTS_COLS, INPUT_CHANS> =
@@ -102,6 +148,40 @@ pub fn depthwise_conv_2d<
         })
     })];
     Tensor4D::new(output, output_scale, output_zero_point)
+}
+
+#[cfg(feature = "cmsis-nn")]
+fn depthwise_conv_2d_cmsis_nn<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const WEIGHTS_ROWS: usize,
+    const WEIGHTS_COLS: usize,
+    const WEIGHTS_CHANS: usize,
+    const WEIGHTS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    weights: &Tensor4D<T, 1, WEIGHTS_ROWS, WEIGHTS_COLS, WEIGHTS_CHANS, WEIGHTS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: DepthwiseConv2DOptions,
+    constants: (
+        Buffer2D<f32, WEIGHTS_CHANS, 1>,
+        Buffer2D<f32, WEIGHTS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, WEIGHTS_CHANS, 1> {
+    // Placeholder hook: swap this body with real CMSIS-NN invocation.
+    depthwise_conv_2d_rust(
+        input,
+        weights,
+        output_scale,
+        output_zero_point,
+        options,
+        constants,
+    )
 }
 
 #[cfg(test)]

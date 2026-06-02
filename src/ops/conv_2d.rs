@@ -4,9 +4,15 @@ use libm::roundf;
 use simba::scalar::SupersetOf;
 
 use crate::activation::{relu, relu6, FusedActivation};
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use crate::backend::quantize_multiplier;
 use crate::buffer::Buffer2D;
 use crate::quantize::Quantized;
 use crate::tensor::{Tensor4D, TensorView, TensorViewPadding};
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use cmsis_nn_rs::convolution::{convolve_wrapper_s8, convolve_wrapper_s8_get_buffer_size, ConvParams};
+#[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+use cmsis_nn_rs::{Dims, NNContext, PerChannelQuantParams};
 
 pub struct Conv2DOptions {
     pub fused_activation: FusedActivation,
@@ -26,6 +32,52 @@ pub struct Conv2DOptions {
 /// * `constants` - Constant values coming from the pre-processing phase
 ///
 pub fn conv_2d<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const FILTERS_BATCHES: usize,
+    const FILTERS_ROWS: usize,
+    const FILTERS_COLS: usize,
+    const FILTERS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    filters: &Tensor4D<T, FILTERS_BATCHES, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS, FILTERS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: Conv2DOptions,
+    constants: (
+        Buffer2D<f32, FILTERS_BATCHES, 1>,
+        Buffer2D<f32, FILTERS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, FILTERS_BATCHES, 1> {
+    #[cfg(feature = "cmsis-nn")]
+    {
+        return conv_2d_cmsis_nn(
+            input,
+            filters,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        );
+    }
+    #[cfg(not(feature = "cmsis-nn"))]
+    {
+        conv_2d_rust(
+            input,
+            filters,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        )
+    }
+}
+
+fn conv_2d_rust<
     T: Quantized,
     const INPUT_ROWS: usize,
     const INPUT_COLS: usize,
@@ -105,6 +157,192 @@ pub fn conv_2d<
         })
     })];
     Tensor4D::new(output, output_scale, output_zero_point)
+}
+
+#[cfg(feature = "cmsis-nn")]
+fn conv_2d_cmsis_nn<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const FILTERS_BATCHES: usize,
+    const FILTERS_ROWS: usize,
+    const FILTERS_COLS: usize,
+    const FILTERS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    filters: &Tensor4D<T, FILTERS_BATCHES, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS, FILTERS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: Conv2DOptions,
+    constants: (
+        Buffer2D<f32, FILTERS_BATCHES, 1>,
+        Buffer2D<f32, FILTERS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, FILTERS_BATCHES, 1> {
+    #[cfg(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none"))]
+    {
+        let input_zero = i32::from_subset(&input.zero_point[0]);
+        let filter_zero = i32::from_subset(&filters.zero_point[0]);
+        let output_zero = i32::from_subset(&output_zero_point[0]);
+        if !(-128..=127).contains(&input_zero)
+            || !(-128..=127).contains(&filter_zero)
+            || !(-128..=127).contains(&output_zero)
+        {
+            return conv_2d_rust(
+                input,
+                filters,
+                output_scale,
+                output_zero_point,
+                options,
+                constants,
+            );
+        }
+
+        let activation_range = match options.fused_activation {
+            FusedActivation::None => (i32::from(i8::MIN), i32::from(i8::MAX)),
+            FusedActivation::Relu => (output_zero.max(0), i32::from(i8::MAX)),
+            FusedActivation::Relu6 => (
+                output_zero.max(0),
+                i32::from_subset(&crate::quantize::quantize::<i8>(
+                    6.0,
+                    output_scale[0],
+                    output_zero_point[0],
+                )),
+            ),
+        };
+
+        let pad = match options.view_padding {
+            TensorViewPadding::Valid => (0i32, 0i32),
+            TensorViewPadding::Same => {
+                let total_h = ((OUTPUT_ROWS - 1) * options.strides.0 + FILTERS_ROWS)
+                    .saturating_sub(INPUT_ROWS);
+                let total_w = ((OUTPUT_COLS - 1) * options.strides.1 + FILTERS_COLS)
+                    .saturating_sub(INPUT_COLS);
+                ((total_h / 2) as i32, (total_w / 2) as i32)
+            }
+        };
+
+        let conv_params = ConvParams::new(
+            -input_zero,
+            output_zero,
+            (options.strides.1 as i32, options.strides.0 as i32),
+            (pad.1, pad.0),
+            (1, 1),
+            activation_range,
+        );
+
+        let multipliers: [i32; FILTERS_BATCHES] = core::array::from_fn(|c| {
+            quantize_multiplier(constants.1.get(c).copied().unwrap_or(constants.1[0])).0
+        });
+        let shifts: [i32; FILTERS_BATCHES] = core::array::from_fn(|c| {
+            quantize_multiplier(constants.1.get(c).copied().unwrap_or(constants.1[0])).1
+        });
+        let quant = PerChannelQuantParams::new(&multipliers, &shifts);
+
+        let input_dims = Dims::new(1, INPUT_ROWS as i32, INPUT_COLS as i32, INPUT_CHANS as i32);
+        let filter_dims = Dims::new(
+            FILTERS_BATCHES as i32,
+            FILTERS_ROWS as i32,
+            FILTERS_COLS as i32,
+            INPUT_CHANS as i32,
+        );
+        let bias_dims = Dims::new(1, 1, 1, FILTERS_BATCHES as i32);
+        let output_dims = Dims::new(
+            1,
+            OUTPUT_ROWS as i32,
+            OUTPUT_COLS as i32,
+            FILTERS_BATCHES as i32,
+        );
+
+        let bias: [i32; FILTERS_BATCHES] = core::array::from_fn(|j| {
+            roundf(constants.0[j] / constants.1.get(j).copied().unwrap_or(constants.1[0])) as i32
+        });
+
+        let input_data: &[i8] = unsafe {
+            core::slice::from_raw_parts(
+                input.buffer.as_ptr() as *const i8,
+                INPUT_ROWS * INPUT_COLS * INPUT_CHANS,
+            )
+        };
+        let filter_data: &[i8] = unsafe {
+            core::slice::from_raw_parts(
+                filters.buffer.as_ptr() as *const i8,
+                FILTERS_BATCHES * FILTERS_ROWS * FILTERS_COLS * INPUT_CHANS,
+            )
+        };
+
+        let mut output = Buffer2D::from_element([T::from_superset_unchecked(&0i32); FILTERS_BATCHES]);
+        let output_data: &mut [i8] = unsafe {
+            core::slice::from_raw_parts_mut(
+                output.as_mut_ptr() as *mut i8,
+                OUTPUT_ROWS * OUTPUT_COLS * FILTERS_BATCHES,
+            )
+        };
+
+        let buf_size = convolve_wrapper_s8_get_buffer_size(
+            &conv_params,
+            &input_dims,
+            &filter_dims,
+            &output_dims,
+        );
+        let mut ctx_buf = [0i8; 1024];
+        let mut ctx = if (buf_size as usize) <= ctx_buf.len() {
+            NNContext::new_from_slice(&mut ctx_buf[0..buf_size as usize])
+        } else {
+            // Workspace is larger than stack fallback; keep correctness via Rust kernel.
+            return conv_2d_rust(
+                input,
+                filters,
+                output_scale,
+                output_zero_point,
+                options,
+                constants,
+            );
+        };
+        ctx.fill_zero();
+
+        if convolve_wrapper_s8(
+            &ctx,
+            &conv_params,
+            &quant,
+            &input_dims,
+            input_data,
+            &filter_dims,
+            filter_data,
+            &bias_dims,
+            &bias,
+            &output_dims,
+            output_data,
+        )
+        .is_err()
+        {
+            return conv_2d_rust(
+                input,
+                filters,
+                output_scale,
+                output_zero_point,
+                options,
+                constants,
+            );
+        }
+
+        return Tensor4D::new([output], output_scale, output_zero_point);
+    }
+
+    #[cfg(not(all(feature = "cmsis-nn", target_arch = "arm", target_os = "none")))]
+    {
+        conv_2d_rust(
+            input,
+            filters,
+            output_scale,
+            output_zero_point,
+            options,
+            constants,
+        )
+    }
 }
 
 #[cfg(test)]
