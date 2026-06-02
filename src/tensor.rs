@@ -23,7 +23,7 @@ pub struct TensorView<T: Quantized, const ROWS: usize, const COLS: usize, const 
 
 /// Represents a quantized 2-dimensional tensor.
 /// The tensor is composed by a 2-dimensional matrix.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tensor2D<T: Quantized, const ROWS: usize, const COLS: usize, const QUANTS: usize> {
     pub buffer: Buffer2D<T, ROWS, COLS>,
     pub scale: [f32; QUANTS],
@@ -32,7 +32,7 @@ pub struct Tensor2D<T: Quantized, const ROWS: usize, const COLS: usize, const QU
 
 /// Represents a quantized 4-dimensional tensor.
 /// The tensor is composed by a series of batches containing matrices with multiple channels.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tensor4D<
     T: Quantized,
     const BATCHES: usize,

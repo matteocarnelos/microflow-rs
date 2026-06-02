@@ -1,7 +1,14 @@
+pub(crate) mod add;
 pub(crate) mod average_pool_2d;
+pub(crate) mod concatenation;
 pub(crate) mod conv_2d;
 pub(crate) mod depthwise_conv_2d;
 pub(crate) mod fully_connected;
+pub(crate) mod logistic;
+pub(crate) mod max_pool_2d;
+pub(crate) mod mul;
+pub(crate) mod pad;
 pub(crate) mod reshape;
 pub(crate) mod softmax;
+pub(crate) mod tanh;
 pub(crate) mod transpose;
