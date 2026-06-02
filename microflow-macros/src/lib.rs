@@ -8,10 +8,11 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use proc_macro_error::{abort_call_site, proc_macro_error};
+use std::collections::BTreeMap;
 use std::fs;
 
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, ItemStruct};
 
 use crate::tflite_flatbuffers::tflite::TensorType;
@@ -126,8 +127,46 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let operators = subgraph.operators().unwrap();
+    let mut input_move_counts: BTreeMap<i32, usize> = BTreeMap::new();
+    for operator in operators.iter() {
+        let inputs = operator.inputs().unwrap();
+        if !inputs.is_empty() {
+            let first_input = inputs.get(0);
+            input_move_counts
+                .entry(first_input)
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
+        }
+    }
+
+    let model_input_index = subgraph.inputs().unwrap().get(0);
+    let model_input_ident = format_ident!("tensor_{}", model_input_index as usize);
     let mut layers = TokenStream2::new();
     for (index, operator) in operators.iter().enumerate() {
+        let inputs = operator.inputs().unwrap();
+        if inputs.is_empty() {
+            abort_call_site!("operator at index {} has no inputs", index);
+        }
+        let first_input = inputs.get(0);
+        let first_input_ident = format_ident!("tensor_{}", first_input as usize);
+        let remaining_uses = input_move_counts.get(&first_input).copied().unwrap_or(0);
+        let input_binding = if remaining_uses > 1 {
+            quote!(let input = #first_input_ident.clone();)
+        } else {
+            quote!(let input = #first_input_ident;)
+        };
+        input_move_counts.insert(first_input, remaining_uses.saturating_sub(1));
+
+        let outputs = operator.outputs().unwrap();
+        if outputs.len() != 1 {
+            abort_call_site!(
+                "only operators with exactly one output are currently supported, got {} at op {}",
+                outputs.len(),
+                index
+            );
+        }
+        let output_ident = format_ident!("tensor_{}", outputs.get(0) as usize);
+
         let layer: Box<dyn ToTokens> = match BuiltinOperator(
             model
                 .operator_codes()
@@ -157,7 +196,12 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             BuiltinOperator::TANH => tanh::parse(operator, tensors),
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
-        layer.to_tokens(&mut layers)
+        quote! {
+            #input_binding
+            #layer
+            let #output_ident = input;
+        }
+        .to_tokens(&mut layers);
     }
 
     let output = tensors.get(subgraph.outputs().unwrap().get(0) as usize);
@@ -192,6 +236,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         ),
     };
 
+    let final_output_ident = format_ident!("tensor_{}", subgraph.outputs().unwrap().get(0) as usize);
     let ts = quote! {
         #item
         impl #ident {
@@ -206,8 +251,9 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn predict_inner(input: microflow::tensor::#input_tensor<#input_type, #(#input_shape),*, 1usize>) -> microflow::tensor::#output_tensor<#output_type, #(#output_shape),*, 1usize> {
+                let #model_input_ident = input;
                 #layers
-                input
+                #final_output_ident
             }
         }
     };
