@@ -20,11 +20,18 @@ include = [
     "/README.md",
 ]
 
+[features]
+default = []
+cmsis-nn = ["dep:cmsis-nn-rs"]
+
 [dependencies]
 microflow-macros = { version = "0.1", path = "microflow-macros" }
 nalgebra = { version = "0.32", default-features = false, features = ["macros"] }
 simba = { version = "0.8", default-features = false }
 libm = "0.2"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+cmsis-nn-rs = { version = "0.2.1", default-features = false, optional = true }
 
 [dev-dependencies]
 csv = "1.2"

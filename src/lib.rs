@@ -9,6 +9,7 @@
 pub use microflow_macros::*;
 
 pub mod activation;
+pub mod backend;
 pub mod buffer;
 pub mod ops;
 pub mod quantize;
