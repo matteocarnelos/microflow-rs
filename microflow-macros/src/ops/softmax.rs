@@ -16,16 +16,18 @@ pub(crate) struct TokenSoftmax<T: TokenQuantized> {
 /// # Arguments
 /// * `operator` - The model operator as an [`Operator`]
 /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+/// * `output_shape` - The effective output shape after folding (§2.1)
 ///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
+    output_shape: &[usize],
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenSoftmax::<i8>::new(operator, tensors)),
-        TensorType::UINT8 => Box::new(TokenSoftmax::<u8>::new(operator, tensors)),
+        TensorType::INT8 => Box::new(TokenSoftmax::<i8>::new(operator, tensors, output_shape)),
+        TensorType::UINT8 => Box::new(TokenSoftmax::<u8>::new(operator, tensors, output_shape)),
         input_type => abort_call_site!(
             "Softmax supports only INT8/UINT8 input tensors, got {:?}",
             input_type
@@ -40,9 +42,14 @@ impl<T: TokenQuantized> TokenSoftmax<T> {
     /// * `operator` - The model operator as an [`Operator`]
     /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
     ///
-    pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
-        let output = TokenTensor2D::from_empty_tensor(
+    pub(crate) fn new(
+        operator: Operator,
+        tensors: Vector<ForwardsUOffset<Tensor>>,
+        output_shape: &[usize],
+    ) -> Self {
+        let output = TokenTensor2D::from_empty_tensor_with_shape(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
+            output_shape.to_vec(),
         );
         Self { output }
     }

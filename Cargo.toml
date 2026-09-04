@@ -29,6 +29,7 @@ libm = "0.2"
 [dev-dependencies]
 csv = "1.2"
 criterion = "0.5"
+rand = "0.9"
 
 [[bench]]
 name = "sine"
@@ -40,6 +41,11 @@ harness = false
 
 [[bench]]
 name = "person_detect"
+harness = false
+
+# Week 6: Conv1D vs the reshape trick + node model latency (benches/conv1d.rs).
+[[bench]]
+name = "conv1d"
 harness = false
 
 [workspace]

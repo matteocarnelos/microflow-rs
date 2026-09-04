@@ -27,18 +27,32 @@ pub(crate) struct TokenConv2D<T: TokenQuantized> {
 /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
 /// * `buffers` - The model buffers as a [`Vector<ForwardsUOffset<Buffer>>`]
 /// * `index` - The operator index
+/// * `output_shape` - The effective output shape after folding (§2.1)
 ///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
     buffers: Vector<ForwardsUOffset<Buffer>>,
     index: usize,
+    output_shape: &[usize],
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenConv2D::<i8>::new(operator, tensors, buffers, index)),
-        TensorType::UINT8 => Box::new(TokenConv2D::<u8>::new(operator, tensors, buffers, index)),
+        TensorType::INT8 => Box::new(TokenConv2D::<i8>::new(
+            operator,
+            tensors,
+            buffers,
+            index,
+            output_shape,
+        )),
+        TensorType::UINT8 => Box::new(TokenConv2D::<u8>::new(
+            operator,
+            tensors,
+            buffers,
+            index,
+            output_shape,
+        )),
         input_type => abort_call_site!(
             "Conv2D supports only INT8/UINT8 input tensors, got {:?}",
             input_type
@@ -60,6 +74,7 @@ impl<T: TokenQuantized> TokenConv2D<T> {
         tensors: Vector<ForwardsUOffset<Tensor>>,
         buffers: Vector<ForwardsUOffset<Buffer>>,
         index: usize,
+        output_shape: &[usize],
     ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
@@ -67,8 +82,9 @@ impl<T: TokenQuantized> TokenConv2D<T> {
             TokenTensor4D::from_buffered_tensor(tensors.get(inputs.get(1) as usize), buffers);
         let biases =
             TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers);
-        let output = TokenTensor4D::from_empty_tensor(
+        let output = TokenTensor4D::from_empty_tensor_with_shape(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
+            output_shape.to_vec(),
         );
         let options = operator.builtin_options_as_conv_2_doptions().unwrap();
         let constants = Self::preprocess(&input, &filters, &biases, &output);

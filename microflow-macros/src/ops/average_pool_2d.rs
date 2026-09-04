@@ -23,16 +23,26 @@ pub(crate) struct TokenAveragePool2D<T: TokenQuantized> {
 /// # Arguments
 /// * `operator` - The model operator as an [`Operator`]
 /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
+/// * `output_shape` - The effective output shape after folding (§2.1)
 ///
 pub(crate) fn parse(
     operator: Operator,
     tensors: Vector<ForwardsUOffset<Tensor>>,
+    output_shape: &[usize],
 ) -> Box<dyn ToTokens> {
     let inputs = operator.inputs().unwrap();
     let input_type = tensors.get(inputs.get(0) as usize).type_();
     match input_type {
-        TensorType::INT8 => Box::new(TokenAveragePool2D::<i8>::new(operator, tensors)),
-        TensorType::UINT8 => Box::new(TokenAveragePool2D::<u8>::new(operator, tensors)),
+        TensorType::INT8 => Box::new(TokenAveragePool2D::<i8>::new(
+            operator,
+            tensors,
+            output_shape,
+        )),
+        TensorType::UINT8 => Box::new(TokenAveragePool2D::<u8>::new(
+            operator,
+            tensors,
+            output_shape,
+        )),
         input_type => abort_call_site!(
             "AveragePool2D supports only INT8/UINT8 input tensors, got {:?}",
             input_type
@@ -47,11 +57,16 @@ impl<T: TokenQuantized> TokenAveragePool2D<T> {
     /// * `operator` - The model operator as an [`Operator`]
     /// * `tensors` - The model tensors as a [`Vector<ForwardsUOffset<Tensor>>`]
     ///
-    pub(crate) fn new(operator: Operator, tensors: Vector<ForwardsUOffset<Tensor>>) -> Self {
+    pub(crate) fn new(
+        operator: Operator,
+        tensors: Vector<ForwardsUOffset<Tensor>>,
+        output_shape: &[usize],
+    ) -> Self {
         let inputs = operator.inputs().unwrap();
         let input = TokenTensor4D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
-        let output = TokenTensor4D::from_empty_tensor(
+        let output = TokenTensor4D::from_empty_tensor_with_shape(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
+            output_shape.to_vec(),
         );
         let options = operator.builtin_options_as_pool_2_doptions().unwrap();
         let constants = Self::preprocess(&input, &output);

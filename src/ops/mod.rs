@@ -1,4 +1,5 @@
 mod average_pool_2d;
+mod conv_1d;
 mod conv_2d;
 mod depthwise_conv_2d;
 mod fully_connected;
@@ -7,6 +8,7 @@ mod softmax;
 mod transpose;
 
 pub use average_pool_2d::*;
+pub use conv_1d::*;
 pub use conv_2d::*;
 pub use depthwise_conv_2d::*;
 pub use fully_connected::*;

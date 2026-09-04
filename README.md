@@ -70,20 +70,48 @@ Otherwise, to run the example locally, just run the above command in the root di
 > [!NOTE]
 > For board examples, you might need to install additional tools and configure the runner to make the example work for your setup.
 
+## Benchmarks
+
+`cargo bench` runs the criterion suites; `cargo run --release --example latency`
+prints min/avg/max model latency over 20k runs:
+
+```bash ignore
+cargo bench --bench conv1d   # Conv1D vs the reshape trick + node model latency
+cargo run --release --example latency
+```
+
+The `conv1d` suite compares the dedicated 1-D kernel against the same work
+expressed through the generic `Conv2D` path (the "reshape trick") on the
+two conv layers of a real node model, plus the end-to-end `predict()`
+latency of the bundled node models. Set `MICROFLOW_CONV2D_ONLY=1` (with its
+own `CARGO_TARGET_DIR` — the env var is read at macro-expansion time and
+cargo does not fingerprint it) to rebuild a whole model onto the trick path
+and compare the `model_*` rows across runs. See `../NOTES.md`, week 6.
+
 ## Supported Operators
 
 Currently, MicroFlow supports the following operators and activation functions:
 
-| Operator          | Quantized | Tensor Type            |
-|-------------------|-----------|------------------------|
-| `FullyConnected`  | &check;   | `Tensor2D`             |
-| `Conv2D`          | &check;   | `Tensor4D`             |
-| `DepthwiseConv2D` | &check;   | `Tensor4D`             |
-| `AveragePool2D`   | &check;   | `Tensor4D`             |
-| `Reshape`         | &check;   | `Tensor2D`, `Tensor4D` |
+| Operator                      | Quantized | Tensor Type            |
+| ----------------------------- | --------- | ---------------------- |
+| `FullyConnected`              | &check;   | `Tensor2D`             |
+| `Conv2D`                      | &check;   | `Tensor4D`             |
+| `Conv1D`                      | &check;   | `Tensor4D`             |
+| `DepthwiseConv2D`             | &check;   | `Tensor4D`             |
+| `AveragePool2D`               | &check;   | `Tensor4D`             |
+| `Transpose`                   | &check;   | `Tensor2D`, `Tensor4D` |
+| `Reshape`                     | &check;   | `Tensor2D`, `Tensor4D` |
+| `ExpandDims`                  | folded    | shape only             |
+| `Shape`/`StridedSlice`/`Pack` | folded    | the Flatten chain      |
+
+`Conv1D` covers the way Keras `Conv1D` layers serialize to TFLite: a
+`CONV_2D` over a `(1, 1, T, C)` tensor (see `docs/conv1d-spec.md`). The
+"folded" operators produce no code: the compiler folds them into virtual
+reshapes at compile time, so rank-3 Keras `Conv1D` graphs build through
+`#[model]` with a 2-D user-facing buffer.
 
 | Activation Function | Quantized |
-|---------------------|-----------|
+| ------------------- | --------- |
 | `ReLU`              | &check;   |
 | `ReLU6`             | &check;   |
 | `Softmax`           | &check;   |

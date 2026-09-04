@@ -68,6 +68,17 @@ impl<T: TokenQuantized> TokenTensor2D<T> {
         if shape.len() == 1 {
             shape.insert(0, 1);
         }
+        Self::from_empty_tensor_with_shape(tensor, shape)
+    }
+
+    /// Builds a [`TokenTensor2D`] from an empty [`Tensor`] with an explicit
+    /// shape (the effective shape after graph folding, §2.1).
+    ///
+    /// # Arguments
+    /// * `tensor` - The empty model tensor as a [`Tensor`]
+    /// * `shape` - The effective (folded) shape, rank 2
+    ///
+    pub fn from_empty_tensor_with_shape(tensor: Tensor, shape: Vec<usize>) -> Self {
         Self {
             buffer: TokenBuffer2D::new(),
             shape,
@@ -146,9 +157,21 @@ impl<T: TokenQuantized> TokenTensor4D<T> {
     /// * `tensor` - The empty model tensor as a [`Tensor`]
     ///
     pub fn from_empty_tensor(tensor: Tensor) -> Self {
+        let shape: Vec<_> = tensor.shape().unwrap().iter().map(|e| e as usize).collect();
+        Self::from_empty_tensor_with_shape(tensor, shape)
+    }
+
+    /// Builds a [`TokenTensor4D`] from an empty [`Tensor`] with an explicit
+    /// shape (the effective shape after graph folding, §2.1).
+    ///
+    /// # Arguments
+    /// * `tensor` - The empty model tensor as a [`Tensor`]
+    /// * `shape` - The effective (folded) shape, rank 4
+    ///
+    pub fn from_empty_tensor_with_shape(tensor: Tensor, shape: Vec<usize>) -> Self {
         Self {
             buffer: TokenBuffer4D::new(),
-            shape: tensor.shape().unwrap().iter().map(|e| e as usize).collect(),
+            shape,
             scale: tensor
                 .quantization()
                 .unwrap()
