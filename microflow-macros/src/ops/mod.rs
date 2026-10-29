@@ -3,5 +3,6 @@ pub(crate) mod conv_2d;
 pub(crate) mod depthwise_conv_2d;
 pub(crate) mod fully_connected;
 pub(crate) mod reshape;
+pub(crate) mod resize_bilinear;
 pub(crate) mod softmax;
 pub(crate) mod transpose;

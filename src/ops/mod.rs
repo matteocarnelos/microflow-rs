@@ -3,6 +3,7 @@ mod conv_2d;
 mod depthwise_conv_2d;
 mod fully_connected;
 mod reshape;
+mod resize_bilinear;
 mod softmax;
 mod transpose;
 
@@ -11,5 +12,6 @@ pub use conv_2d::*;
 pub use depthwise_conv_2d::*;
 pub use fully_connected::*;
 pub use reshape::*;
+pub use resize_bilinear::*;
 pub use softmax::*;
 pub use transpose::*;
