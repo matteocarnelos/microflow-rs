@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `FullyConnected` no longer panics (`assertion failed: idx < self.len()`) when the model omits the optional bias tensor, as the TFLite converter does for all-zero biases (e.g. `use_bias=False`)
+
 ## [0.1.3] - 2024-06-01
 
 ### Fixed
