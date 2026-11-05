@@ -5,6 +5,7 @@ mod fully_connected;
 mod max_pool_2d;
 mod reshape;
 mod resize_bilinear;
+mod resize_nearest_neighbor;
 mod softmax;
 mod transpose;
 
@@ -15,5 +16,6 @@ pub use fully_connected::*;
 pub use max_pool_2d::*;
 pub use reshape::*;
 pub use resize_bilinear::*;
+pub use resize_nearest_neighbor::*;
 pub use softmax::*;
 pub use transpose::*;

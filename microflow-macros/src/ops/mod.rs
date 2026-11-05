@@ -5,5 +5,6 @@ pub(crate) mod fully_connected;
 pub(crate) mod max_pool_2d;
 pub(crate) mod reshape;
 pub(crate) mod resize_bilinear;
+pub(crate) mod resize_nearest_neighbor;
 pub(crate) mod softmax;
 pub(crate) mod transpose;

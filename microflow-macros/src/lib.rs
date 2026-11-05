@@ -148,6 +148,9 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
             BuiltinOperator::RESHAPE => Box::new(reshape::parse(operator, tensors)),
             BuiltinOperator::TRANSPOSE => transpose::parse(operator, tensors, buffers),
             BuiltinOperator::RESIZE_BILINEAR => resize_bilinear::parse(operator, tensors),
+            BuiltinOperator::RESIZE_NEAREST_NEIGHBOR => {
+                resize_nearest_neighbor::parse(operator, tensors)
+            }
             unsupported_op => abort_call_site!("unsupported operator: {:?}", unsupported_op),
         };
         layer.to_tokens(&mut layers)
