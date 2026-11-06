@@ -398,11 +398,17 @@ pub fn update_constants_fully_connected<
     constants: &mut (Buffer2D<f32, COLS, 1>, f32, Buffer2D<i32, 1, COLS>, i32),
     input_zero_point: T,
 ) {
-    constants.2 = Buffer2D::from(SMatrix::from_rows(&[&weights
-        .buffer
-        .cast::<i32>()
-        .row_sum()
-        * i32::from_subset(&input_zero_point)]));
+    // Same values as `weights.buffer.cast::<i32>().row_sum() * zero_point`,
+    // without materialising the i32 copy of the weights (ROWS * COLS * 4 bytes
+    // of stack).
+    let zero_point = i32::from_subset(&input_zero_point);
+    constants.2 = Buffer2D::from_fn(|_, col| {
+        let mut sum = 0i32;
+        for row in 0..ROWS {
+            sum += i32::from_subset(&weights.buffer[(row, col)]);
+        }
+        sum * zero_point
+    });
 }
 /// Accumulates quantized gradients into an integer gradient buffer.
 ///

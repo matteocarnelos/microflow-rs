@@ -328,7 +328,7 @@ impl<T: TokenQuantized> TrainToTokens for TokenFullyConnected<T> {
             let shape_2 = input[2];
             let shape_3 = input[3];
             let prepend = quote! {
-                let backward_gradient :  Tensor4D<i32, #shape_0, #shape_1, #shape_2, #shape_3, 1>= Tensor2D{
+                let backward_gradient :  microflow::tensor::Tensor4D<i32, #shape_0, #shape_1, #shape_2, #shape_3, 1>= microflow::tensor::Tensor2D{
                     buffer: microflow::gradient_fully_connected::update_grad_fully_connected(
                     &#input_ident,
                     & #output_ident,
@@ -346,7 +346,10 @@ impl<T: TokenQuantized> TrainToTokens for TokenFullyConnected<T> {
                     scale: [1f32]
                     }.into();
                 let backward_gradient = backward_gradient.buffer;
-                let #input_ident = #input_ident .into();
+                // Back to 4D for the previous layer's backward pass. Explicit type:
+                // when this FC is the first trained layer nothing uses the value
+                // afterwards, so `.into()` alone cannot be inferred.
+                let #input_ident: microflow::tensor::Tensor4D<_, #shape_0, #shape_1, #shape_2, #shape_3, 1usize> = #input_ident .into();
                 // println!("input: {}, {}, {}", #input_ident.buffer.view((0, 0), (1, 4)),#input_ident.zero_point[0], #input_ident.scale[0]);
                 // println!("output net: {}",#output_ident.buffer);
                 // println!("input: {}",#input_ident.buffer);
@@ -419,8 +422,10 @@ impl<T: TokenQuantized> TrainToTokens for TokenFullyConnected<T> {
             );
             // println!("gradient bias:{}",#constants_gradient_ident.0[0]);
             // println!("bias:{}",#constants_ident.0[0]);
-            #weights_gradient_ident = nalgebra::SMatrix::zeros();
-            #constants_gradient_ident.0 = nalgebra::SMatrix::zeros();
+            // Reset in place: `= SMatrix::zeros()` builds a full-size temporary
+            // on the stack first (e.g. 40 KB for a 120x84 i32 gradient).
+            #weights_gradient_ident.fill(0);
+            #constants_gradient_ident.0.fill(0f32);
             // println!("gradient weights: {}",weight_gradient.iter().fold(String::new(), |accarr, batch|accarr + &batch.map(|el|el.iter().fold(String::new(),|sum, el1|sum +" "+ &el1.to_string())).to_string()));
             // println!("gradient input: {}",backward_gradient[0].map(|el|el.iter().fold(String::new(),|sum, el1|sum +" " +&el1.to_string())));
             // println!("mean gradient conv: {}",weight_gradient[0].map(|el|el.iter().fold(0f32,|sum, el1|sum+(*el1 as f32).abs() / el.len() as f32)).mean());

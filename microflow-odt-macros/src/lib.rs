@@ -75,7 +75,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         if let syn::Expr::Lit(ele_lit) = ele {
             if let syn::Lit::Float(_) = &ele_lit.lit {
             } else {
-                abort_call_site!("the arguments of the back_norms must be floats: {:?}", ele)
+                abort_call_site!("the arguments of the back_norms must be floats: {}", ele.to_token_stream())
             }
         }
     }
@@ -83,7 +83,7 @@ pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
         if let syn::Expr::Lit(ele_lit) = ele {
             if let syn::Lit::Float(_) = &ele_lit.lit {
             } else {
-                abort_call_site!("the arguments of the grad_norms must be floats: {:?}", ele)
+                abort_call_site!("the arguments of the grad_norms must be floats: {}", ele.to_token_stream())
             }
         }
     }
