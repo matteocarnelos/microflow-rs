@@ -16,6 +16,7 @@ pub struct Conv2DOptions {
 
 /// Performs the Conv2D operation.
 /// Returns a 4-dimensional output tensor containing the result of the operation.
+/// Takes ownership of the Tensor struct, is useful for memory optimization purposes.
 ///
 /// # Arguments
 /// * `input` - The 4-dimensional input tensor
@@ -38,6 +39,41 @@ pub fn conv_2d<
     const OUTPUT_COLS: usize,
 >(
     input: Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
+    filters: &Tensor4D<T, FILTERS_BATCHES, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS, FILTERS_QUANTS>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+    options: Conv2DOptions,
+    constants: (
+        Buffer2D<f32, FILTERS_BATCHES, 1>,
+        Buffer2D<f32, FILTERS_QUANTS, 1>,
+    ),
+) -> Tensor4D<T, 1, OUTPUT_ROWS, OUTPUT_COLS, FILTERS_BATCHES, 1> {
+    return conv_2d_borrow(&input, filters, output_scale, output_zero_point, options, constants)
+}
+/// Performs the Conv2D operation.
+/// Returns a 4-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 4-dimensional input tensor
+/// * `filters` - The 4-dimensional tensor representing the filters of the operator
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+/// * `options` - Operator's options as an [`Conv2DOptions`] struct
+/// * `constants` - Constant values coming from the pre-processing phase
+///
+pub fn conv_2d_borrow<
+    T: Quantized,
+    const INPUT_ROWS: usize,
+    const INPUT_COLS: usize,
+    const INPUT_CHANS: usize,
+    const FILTERS_BATCHES: usize,
+    const FILTERS_ROWS: usize,
+    const FILTERS_COLS: usize,
+    const FILTERS_QUANTS: usize,
+    const OUTPUT_ROWS: usize,
+    const OUTPUT_COLS: usize,
+>(
+    input: &Tensor4D<T, 1, INPUT_ROWS, INPUT_COLS, INPUT_CHANS, 1>,
     filters: &Tensor4D<T, FILTERS_BATCHES, FILTERS_ROWS, FILTERS_COLS, INPUT_CHANS, FILTERS_QUANTS>,
     output_scale: [f32; 1],
     output_zero_point: [T; 1],

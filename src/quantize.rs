@@ -1,11 +1,21 @@
 use libm::roundf;
 use nalgebra::Scalar;
+use num_traits::{Saturating, SaturatingMul, SaturatingSub};
 use simba::scalar::{SubsetOf, SupersetOf};
 
 /// Represents the trait to constrain a type to be quantized.
 pub trait Quantized: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32> {}
 impl<T: Scalar + Copy + Ord + SubsetOf<i32> + SubsetOf<f32>> Quantized for T {}
 
+pub trait Trainable:
+    Quantized + Saturating + num_traits::identities::Zero + SaturatingMul + nalgebra::ClosedMul
+{
+}
+impl<
+        T: Quantized + Saturating + num_traits::identities::Zero + SaturatingMul + nalgebra::ClosedMul,
+    > Trainable for T
+{
+}
 /// Performs quantization on the given floating-point input.
 ///
 /// # Arguments

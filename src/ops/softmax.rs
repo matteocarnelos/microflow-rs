@@ -17,6 +17,22 @@ pub fn softmax<T: Quantized, const ROWS: usize, const COLS: usize>(
     output_scale: [f32; 1],
     output_zero_point: [T; 1],
 ) -> Tensor2D<T, ROWS, COLS, 1> {
+    softmax_borrow(&input, output_scale, output_zero_point)
+}
+
+/// Performs the Softmax activation function as an operator.
+/// Returns a 2-dimensional output tensor containing the result of the operation.
+///
+/// # Arguments
+/// * `input` - The 2-dimensional input tensor
+/// * `output_scale` - The scale of the resulting output tensor
+/// * `output_zero_point` - The zero point of the resulting output tensor
+///
+pub fn softmax_borrow<T: Quantized, const ROWS: usize, const COLS: usize>(
+    input: &Tensor2D<T, ROWS, COLS, 1>,
+    output_scale: [f32; 1],
+    output_zero_point: [T; 1],
+) -> Tensor2D<T, ROWS, COLS, 1> {
     let exp = input.buffer.map(|e| f32::from_subset(&e) * input.scale[0]);
     let sum = exp.map(expf).sum();
     Tensor2D::new(
