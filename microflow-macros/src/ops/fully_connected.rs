@@ -70,13 +70,11 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         let input = TokenTensor2D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
         let weights =
             TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(1) as usize), buffers);
-        // The bias is an optional input: the TFLite converter omits it when it is all zeros
-        // (e.g. `use_bias=False`) and marks it with the tensor index -1.
-        let biases = match inputs.len() {
-            len if len > 2 && inputs.get(2) >= 0 => {
-                TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers)
-            }
-            _ => Self::zero_biases(weights.shape[1], input.scale[0] * weights.scale[0]),
+        // The bias is optional, a missing bias is marked with the tensor index -1
+        let biases = if inputs.len() > 2 && inputs.get(2) >= 0 {
+            TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers)
+        } else {
+            Self::zero_biases(weights.shape[1], input.scale[0] * weights.scale[0])
         };
         let output = TokenTensor2D::from_empty_tensor(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
