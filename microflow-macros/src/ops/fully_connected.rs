@@ -70,8 +70,12 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
         let input = TokenTensor2D::from_empty_tensor(tensors.get(inputs.get(0) as usize));
         let weights =
             TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(1) as usize), buffers);
-        let biases =
-            TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers);
+        // The bias is optional, a missing bias is marked with the tensor index -1
+        let biases = if inputs.len() > 2 && inputs.get(2) >= 0 {
+            TokenTensor2D::from_buffered_tensor(tensors.get(inputs.get(2) as usize), buffers)
+        } else {
+            Self::zero_biases(weights.shape[1], input.scale[0] * weights.scale[0])
+        };
         let output = TokenTensor2D::from_empty_tensor(
             tensors.get(operator.outputs().unwrap().get(0) as usize),
         );
@@ -86,6 +90,21 @@ impl<T: TokenQuantized> TokenFullyConnected<T> {
             reshape: input.shape.len() != 2,
             constants,
             index,
+        }
+    }
+
+    /// Builds all-zero biases, used when the model omits the optional bias tensor.
+    ///
+    /// # Arguments
+    /// * `units` - The number of output units of the operator
+    /// * `scale` - The bias scale, `input_scale * weights_scale` as in TFLite
+    ///
+    fn zero_biases(units: usize, scale: f32) -> TokenTensor2D<i32> {
+        TokenTensor2D {
+            buffer: TokenBuffer2D::from(DMatrix::zeros(units, 1)),
+            shape: vec![units, 1],
+            scale: vec![scale],
+            zero_point: vec![0],
         }
     }
 
@@ -217,6 +236,24 @@ mod tests {
             constants.0 .0,
             Some(dmatrix![-0.9777778; -0.73333335; -0.4888889])
         );
+        assert_eq!(constants.1, 0.13222224);
+        assert_eq!(constants.2 .0, Some(dmatrix![90, 126, 162]));
+        assert_eq!(constants.3, 288);
+    }
+
+    #[test]
+    fn fully_connected_preprocess_zero_biases() {
+        let layer = setup();
+        let input = TokenTensor2D {
+            buffer: TokenBuffer2D::new(),
+            shape: vec![1, 2],
+            scale: vec![0.17],
+            zero_point: vec![18],
+        };
+        let biases = TokenFullyConnected::<i8>::zero_biases(3, 0.17 * 0.7);
+        let constants =
+            TokenFullyConnected::preprocess(&input, &layer.weights, &biases, &layer.output);
+        assert_eq!(constants.0 .0, Some(dmatrix![0.; 0.; 0.]));
         assert_eq!(constants.1, 0.13222224);
         assert_eq!(constants.2 .0, Some(dmatrix![90, 126, 162]));
         assert_eq!(constants.3, 288);
